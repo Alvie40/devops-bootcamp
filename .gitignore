@@ -7,3 +7,10 @@ __pycache__/
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+cpp/build/
+cpp/compile_commands.json
+cpp/cmake-build-*/
+.idea/
