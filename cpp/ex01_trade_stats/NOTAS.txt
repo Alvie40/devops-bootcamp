@@ -1,0 +1,256 @@
+================================================================================
+NOTAS DE ESTUDO — ex01 trade_stats
+Fase 0 · Semana 1 · Dia 1 do ROADMAP-CPP-HFT.md
+Sessão de refatoração: 07/set/2026
+================================================================================
+
+Este arquivo registra o que mudou no código DEPOIS que a primeira versão
+funcional passou nos checkpoints do README, e o PORQUÊ de cada decisão. O
+README é o enunciado; isto aqui é o diário de bordo. Se em três meses eu
+reabrir este exercício e não lembrar por que algo está do jeito que está, a
+resposta tem que estar abaixo.
+
+
+--------------------------------------------------------------------------------
+1. PONTO DE PARTIDA
+--------------------------------------------------------------------------------
+
+A versão que saiu do dia 1 já cumpria o Definition of Done funcional:
+lia o CSV, contava malformadas, calculava min/max/mean/vwap e batia com a
+calculadora. O que ela NÃO tinha era higiene de código — e foi isso que o
+clang-tidy apontou.
+
+Diagnóstico que abriu a sessão (check misc-use-internal-linkage):
+
+    Function 'max_price' can be made static or moved into an anonymous
+    namespace to enforce internal linkage
+
+E, depois, o mesmo para o struct:
+
+    Struct 'Trade' can be moved into an anonymous namespace to enforce
+    internal linkage
+
+
+--------------------------------------------------------------------------------
+2. REFATORAÇÃO 1 — LINKAGE INTERNO (namespace anônimo)
+--------------------------------------------------------------------------------
+
+O QUE MUDOU
+  `struct Trade` e as quatro funções de estatística (`mean_price`, `vwap`,
+  `min_price`, `max_price`) passaram para dentro de um `namespace { ... }`
+  sem nome, fechado com `}  // namespace` logo antes do `main`.
+
+O PROBLEMA QUE ISSO RESOLVE
+  Toda função e todo tipo declarado no escopo de arquivo, por padrão, tem
+  LINKAGE EXTERNO: o símbolo entra na tabela do objeto (.o) e fica visível
+  para o linker no programa inteiro. Consequências:
+
+    a) Colisão de nome. Se um dia ex02 tiver outro `max_price` e os dois
+       objetos forem linkados juntos, isso é uma violação da ODR (One
+       Definition Rule). No melhor caso o linker acusa "duplicate symbol";
+       no pior caso — funções `inline` ou template — ele escolhe uma das
+       duas em silêncio e o programa faz a coisa errada em produção.
+    b) Otimização perdida. Símbolo externo é, do ponto de vista do
+       compilador, potencialmente chamado de fora da unidade de tradução.
+       Ele não pode assumir que conhece todos os call sites, então inlining
+       agressivo e eliminação de código morto ficam limitados. Em código de
+       latência isso importa de verdade.
+
+  Nada aqui é usado fora do main.cpp. Declarar externo é dar visibilidade
+  global de graça, sem receber nada em troca.
+
+POR QUE `namespace { }` E NÃO `static`
+  As duas formas dão linkage interno para FUNÇÕES, e para função o efeito é
+  equivalente. Escolhi o namespace anônimo por três razões:
+
+    1. `static` em escopo de arquivo é herança do C. Em C++ a palavra
+       `static` já significa outras três coisas (membro de classe, variável
+       local persistente, método estático); sobrecarregar ela com um quarto
+       sentido piora a leitura.
+    2. `static` NÃO se aplica a tipos. Não existe `static struct Trade`.
+       O namespace anônimo aplica-se a tudo — struct, função, template,
+       variável — com uma construção só. Como o clang-tidy pediu o mesmo
+       tratamento para o `Trade` logo em seguida, o namespace já cobria o
+       caso; a versão com `static` teria exigido duas soluções diferentes
+       no mesmo arquivo.
+    3. É um bloco único: tudo que está lá dentro é privado ao arquivo, e
+       isso fica óbvio na leitura. Com `static` a informação fica pulverizada
+       em N palavras-chave que é fácil esquecer de repetir na função nova.
+
+  Detalhe técnico: o namespace anônimo não é literalmente "sem nome" — o
+  compilador gera um nome único por unidade de tradução e insere um
+  `using namespace` implícito. Por isso os símbolos continuam acessíveis
+  dentro do arquivo, mas nenhum outro .cpp consegue nomear aquele namespace.
+
+DECISÃO DE ESCOPO
+  O aviso original citava só `max_price`. Corrigi as quatro funções de uma
+  vez porque as outras três têm exatamente o mesmo defeito — o linter só não
+  as citou na mesma passada. Corrigir uma e deixar três acusando na próxima
+  rodada é trabalho repetido.
+
+
+--------------------------------------------------------------------------------
+3. REFATORAÇÃO 2 — clang-format NO ARQUIVO
+--------------------------------------------------------------------------------
+
+O QUE MUDOU (tudo cosmético, zero mudança de comportamento)
+  - Corpo do `min_price` estava com indentação de 4 espaços enquanto o resto
+    do arquivo usava 2. Normalizado.
+  - `println( "min: ...` → `println("min: ...` (espaço espúrio depois do
+    parêntese, em quatro linhas).
+  - `std::string qty_str   = ...` — o alinhamento manual do `=` foi desfeito.
+    O estilo Google não alinha atribuições consecutivas em coluna; alinhamento
+    manual é ruído no diff (mudar um nome de variável reindenta as linhas
+    vizinhas e polui o `git blame`).
+  - Linhas em branco duplicadas colapsadas.
+
+CONFIG USADA
+  `.clang-format` na raiz de cpp/, já existente:
+      BasedOnStyle: Google
+      ColumnLimit: 100
+
+PEGADINHA DE AMBIENTE (vale anotar)
+  No macOS o `clang-format` vem junto com os Command Line Tools mas NÃO fica
+  no PATH. `which clang-format` retorna vazio e dá a falsa impressão de que
+  precisa instalar via Homebrew. O binário está em:
+      /Library/Developer/CommandLineTools/usr/bin/clang-format
+  Também dá para achar com `xcrun -f clang-format`.
+
+
+--------------------------------------------------------------------------------
+4. REFATORAÇÃO 3 — ALVOS `format` E `format-check` NO CMake
+--------------------------------------------------------------------------------
+
+O QUE MUDOU
+  `cpp/CMakeLists.txt` ganhou dois alvos customizados:
+
+      cmake --build build --target format        # reescreve in-place
+      cmake --build build --target format-check  # só verifica, falha se sujo
+
+POR QUE VIROU ALVO DE BUILD E NÃO UM ALIAS DE SHELL
+  Um alias no ~/.zshrc some quando eu troco de máquina e não existe para
+  ninguém que clone o repo. Alvo de CMake viaja junto com o código.
+
+DECISÕES DENTRO DO BLOCO
+
+  find_program(... HINTS ...)
+    Por causa da pegadinha da seção 3, o `find_program` puro não acharia o
+    binário. Os HINTS cobrem Command Line Tools + LLVM do Homebrew em ARM
+    (/opt/homebrew) e Intel (/usr/local).
+
+  if(CLANG_FORMAT_BIN) ... else() message(STATUS ...) endif()
+    Se o binário não existir, o CMake apenas avisa e não cria os alvos. A
+    alternativa — `message(FATAL_ERROR)` — quebraria o `cmake -S . -B build`
+    de quem só quer COMPILAR o projeto numa máquina sem clang-format.
+    Ferramenta de higiene não pode ser pré-requisito de build.
+
+  file(GLOB_RECURSE ... CONFIGURE_DEPENDS)
+    Glob em CMake normalmente é má prática para LISTA DE FONTES de um alvo,
+    porque o arquivo novo não dispara reconfiguração e o build fica
+    silenciosamente desatualizado. Aqui o caso é outro: a lista alimenta um
+    formatador, não a compilação. O custo de errar é "arquivo novo não foi
+    formatado", não "binário errado". Somado a isso, `CONFIGURE_DEPENDS`
+    manda o CMake refazer o glob quando arquivos aparecem ou somem. Com isso
+    ex02, ex03... entram no `format` sozinhos — que é exatamente o que quero
+    num repo de estudo que ganha um diretório por dia.
+
+  list(FILTER FORMAT_SOURCES EXCLUDE REGEX "/(build|cmake-build-[^/]*)/")
+    Os diretórios de build (`build/` do CLI, `cmake-build-debug/` do CLion)
+    ficam DENTRO da árvore de fontes. Sem esse filtro o glob pegaria código
+    gerado e artefatos de terceiros. O `cmake-build-[^/]*` casa também
+    `cmake-build-release`, `cmake-build-relwithdebinfo` etc.
+
+  VERBATIM
+    Garante que os caminhos passados ao comando sejam escapados corretamente.
+    Sem isso, um caminho com espaço (bem provável em macOS) quebra o alvo.
+
+  Por que DOIS alvos
+    `format` corrige, `format-check` só acusa e sai com código != 0
+    (`--dry-run -Werror`). O segundo é o que serve para CI ou pre-commit
+    hook: em pipeline eu quero FALHAR, não quero um passo que altera
+    arquivos no meio do build.
+
+
+--------------------------------------------------------------------------------
+5. VERIFICAÇÃO — O QUE FOI DE FATO EXECUTADO
+--------------------------------------------------------------------------------
+
+Build completo com as flags do projeto (-Wall -Wextra -Wpedantic -Werror
++ AddressSanitizer + UndefinedBehaviorSanitizer): compila e linka limpo.
+
+Caminhos de robustez, todos com sanitizer ativo:
+
+  ./build/ex01_trade_stats/trade_stats ex01_trade_stats/trades.csv
+      trades: 5 / malformed: 1 / min 101.10 / max 105.25
+      mean 103.32 / vwap 103.07                            exit 0
+
+  ./build/ex01_trade_stats/trade_stats            (sem argumento)
+      "uso: trade_stats <trades.csv>"  em stderr           exit 1
+
+  ./build/ex01_trade_stats/trade_stats /nao/existe.csv
+      "erro: nao abriu /nao/existe.csv"                    exit 1
+
+  CSV só com lixo
+      "erro: nenhum trade valido em ..."                   exit 1
+
+Conferência independente dos números (implementação paralela em awk, para
+não conferir o programa com ele mesmo):
+      n=5  min=101.10  max=105.25  mean=103.3200  vwap=103.0656  (qty=800)
+Bate com a saída do programa. O VWAP 103.0656 arredonda para 103.07.
+
+Alvo `format` rodado duas vezes seguidas: a segunda não alterou nada
+(idempotente). `format-check` passa.
+
+
+--------------------------------------------------------------------------------
+6. CONCEITOS DO DIA — RESPOSTAS PRONTAS PARA ENTREVISTA
+--------------------------------------------------------------------------------
+
+RAII (Resource Acquisition Is Initialization) — apontando para o `ifstream`
+  O tempo de vida do RECURSO é amarrado ao tempo de vida do OBJETO. O
+  `std::ifstream file(argv[1])` abre o arquivo no construtor e o fecha no
+  destrutor, que o compilador chama automaticamente quando `file` sai de
+  escopo. Ninguém escreve `close()` e é impossível esquecer. O ponto forte
+  é que isso vale inclusive no caminho de exceção: se o `std::stod` lançar
+  lá dentro do loop e a exceção propagasse para fora da função, o
+  desempilhamento (stack unwinding) chamaria o destrutor do `file` no
+  caminho. Em C, com `fopen`/`fclose`, todo `return` antecipado é uma chance
+  de vazar o handle.
+
+`const std::vector<Trade>&` nos parâmetros
+  O `&` evita copiar o vector inteiro a cada chamada — passar por valor
+  copiaria todos os elementos (alocação no heap + cópia). O `const` é a
+  promessa, verificada pelo compilador, de que a função só lê. Os dois
+  juntos dão o desempenho de passar ponteiro com a segurança de passar cópia.
+
+Linkage interno vs externo
+  Ver seção 2. Resumo de 30 segundos: linkage externo expõe o símbolo ao
+  linker do programa inteiro, o que abre porta para violação de ODR e
+  bloqueia otimização; namespace anônimo restringe à unidade de tradução.
+
+
+--------------------------------------------------------------------------------
+7. PENDÊNCIAS / O QUE FICOU DE PROPÓSITO
+--------------------------------------------------------------------------------
+
+- `trades.csv` tem uma última linha com o literal "dfgdrgrgrgrg" e sem
+  newline final. É intencional: é a fixture que exercita o contador de
+  malformadas (linha sem vírgula → `find` devolve `npos`). Se um dia isso
+  virar teste automatizado, vale trocar por algo autoexplicativo do tipo
+  "linha_invalida_sem_virgula" e mover para um `trades_malformed.csv`
+  separado, deixando o CSV principal limpo.
+
+- Min/max continuam escritos na mão, com laço explícito, porque o enunciado
+  do dia 1 pede isso. Em código de produção seriam
+  `std::ranges::minmax_element` numa passada só — hoje são duas passadas
+  sobre o mesmo vector. Otimização deliberadamente não feita: o exercício
+  treina o laço.
+
+- Não há testes automatizados. A verificação da seção 5 foi manual. Quando o
+  roadmap chegar em test framework, esses quatro casos de robustez são os
+  primeiros candidatos.
+
+- `format-check` ainda não está plugado em nenhum hook nem CI. O alvo existe;
+  o gatilho não.
+
+================================================================================
