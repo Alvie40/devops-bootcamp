@@ -1,7 +1,7 @@
 ================================================================================
 NOTAS DE ESTUDO — ex01 trade_stats
 Fase 0 · Semana 1 · Dia 1 do ROADMAP-CPP-HFT.md
-Sessão de refatoração: 07/set/2026
+Sessões: refatoração 07/set/2026 · testes 08/set/2026
 ================================================================================
 
 Este arquivo registra o que mudou no código DEPOIS que a primeira versão
@@ -87,6 +87,22 @@ DECISÃO DE ESCOPO
   vez porque as outras três têm exatamente o mesmo defeito — o linter só não
   as citou na mesma passada. Corrigir uma e deixar três acusando na próxima
   rodada é trabalho repetido.
+
+ATUALIZAÇÃO (08/set, sessão dos testes) — LEIA JUNTO COM A SEÇÃO 7
+  O namespace anônimo saiu. NÃO é regressão, é a mesma regra aplicada a um fato
+  novo: `Trade` e as quatro estatísticas mudaram de arquivo, foram para
+  `trade_stats.cpp`, e agora são chamadas de OUTRA unidade de tradução (o
+  binário de teste). Linkage interno significa exatamente "ninguém fora deste
+  .cpp pode me chamar" — mantê-lo tornaria o código intestável.
+
+  A regra que vale, e que é a resposta de entrevista: o linkage deve ser o menor
+  que ainda atende os call sites REAIS. Enquanto o único call site era o `main`
+  do mesmo arquivo, o mínimo era interno. Assim que o teste virou call site
+  legítimo, o mínimo passou a ser externo. Mudou o requisito, não o critério.
+
+  O que sobrou de linkage interno: o `namespace { }` dentro de
+  `tests_trade_stats.cpp`, que guarda os helpers do teste (`kGabarito`,
+  `parse()`). Esses sim não são chamados de lugar nenhum.
 
 
 --------------------------------------------------------------------------------
@@ -230,27 +246,143 @@ Linkage interno vs externo
 
 
 --------------------------------------------------------------------------------
-7. PENDÊNCIAS / O QUE FICOU DE PROPÓSITO
+7. SESSÃO 08/set — TESTES COM Catch2
 --------------------------------------------------------------------------------
 
-- `trades.csv` tem uma última linha com o literal "dfgdrgrgrgrg" e sem
-  newline final. É intencional: é a fixture que exercita o contador de
-  malformadas (linha sem vírgula → `find` devolve `npos`). Se um dia isso
-  virar teste automatizado, vale trocar por algo autoexplicativo do tipo
-  "linha_invalida_sem_virgula" e mover para um `trades_malformed.csv`
-  separado, deixando o CSV principal limpo.
+O PRÉ-REQUISITO QUE NINGUÉM AVISA
+  Não dava para testar nada sem antes mexer na estrutura. Função que mora ao
+  lado do `main()`, dentro do executável, não tem como ser chamada por um
+  segundo binário — o binário de teste tem o `main()` dele. Ou o teste é só
+  caixa-preta (roda o processo e compara stdout), ou a lógica sai do executável.
 
-- Min/max continuam escritos na mão, com laço explícito, porque o enunciado
-  do dia 1 pede isso. Em código de produção seriam
-  `std::ranges::minmax_element` numa passada só — hoje são duas passadas
-  sobre o mesmo vector. Otimização deliberadamente não feita: o exercício
-  treina o laço.
+  Escolhi tirar a lógica: `trade_stats.hpp` + `trade_stats.cpp` viraram uma
+  biblioteca (`trade_stats_lib`), e tanto o executável quanto os testes linkam
+  contra ela. O `main.cpp` encolheu para ~30 linhas de puro cabeamento de CLI:
+  checar argc, abrir arquivo, chamar `parse_trades`, imprimir.
 
-- Não há testes automatizados. A verificação da seção 5 foi manual. Quando o
-  roadmap chegar em test framework, esses quatro casos de robustez são os
-  primeiros candidatos.
+  Benefício de tabela: o parsing saiu junto, como
+  `parse_trades(std::istream&) -> ParseResult{trades, malformed}`. Recebendo
+  `istream` em vez de caminho de arquivo, o teste alimenta um
+  `std::istringstream` e não toca em disco. Teste que depende de arquivo falha
+  por motivo errado (cwd errado, permissão) e esconde a regressão de verdade.
 
-- `format-check` ainda não está plugado em nenhum hook nem CI. O alvo existe;
-  o gatilho não.
+DECISÕES NO CMake
+
+  option(FTE_BUILD_TESTS ... ON)
+    Com OFF, o bloco inteiro do FetchContent é pulado e o projeto compila sem
+    rede. FetchContent baixa no CONFIGURE, então sem essa saída um avião ou um
+    wifi ruim impediriam até de compilar o exercício. Verificado: configure,
+    build e rodada do binário funcionam com -DFTE_BUILD_TESTS=OFF.
+
+  Sanitizers continuam GLOBAIS, warnings viraram alvo INTERFACE
+    Esta foi a mudança estrutural do CMakeLists. Antes, `-Wall -Wextra
+    -Wpedantic -Werror` e os sanitizers eram dois `add_compile_options()`
+    globais. Com uma dependência de terceiros na árvore, isso quebra:
+
+      - `-Werror` global aplicado ao Catch2 = build falha por warning que não é
+        meu e que eu não posso consertar. Por isso virou
+        `add_library(project_warnings INTERFACE)`, linkado só nos meus alvos.
+      - Sanitizer, ao contrário, PRECISA continuar global e pegar o Catch2
+        junto. Misturar código instrumentado com não instrumentado faz o ASan
+        emitir falso positivo de container-overflow quando um
+        `std::vector`/`std::string` cruza a fronteira entre os dois mundos.
+
+    Ou seja: duas flags que antes andavam juntas têm escopos opostos assim que
+    entra dependência externa. Boa pergunta de entrevista escondida aqui.
+
+  SYSTEM no FetchContent_Declare
+    Marca os headers do Catch2 como headers de sistema. Sem isso, o
+    `tests_trade_stats.cpp` — que É compilado com `-Werror` — quebraria por
+    warning gerado dentro das macros do Catch2. Precisa de CMake >= 3.25.
+
+  GIT_TAG v3.16.0 (tag fixa, não branch) + GIT_SHALLOW
+    Build reproduzível não segue `devel`. Fixar a tag é o que garante que o
+    build de hoje e o de daqui a seis meses baixam o mesmo código.
+
+  catch_discover_tests()
+    Registra cada TEST_CASE como um teste individual no CTest, em vez de um
+    único caso "roda o binário". No relatório aparece QUAL caso caiu — que é a
+    diferença entre sinal útil e "o teste falhou, vai investigar".
+
+  Glob do `format` ganhou `_deps` na exclusão
+    O FetchContent despeja as fontes do Catch2 em `build/_deps/`. Já estava
+    coberto pelo filtro de `build`, mas explicitei — se um dia eu mudar
+    FETCHCONTENT_BASE_DIR, o filtro continua valendo. Confirmado no log do
+    alvo: o clang-format recebeu só os meus 4 arquivos.
+
+OS TESTES (10 casos, `ex01_trade_stats/tests_trade_stats.cpp`)
+  parse: linhas boas; linha sem vírgula; preço não numérico; qty não numérica;
+  campo vazio dos dois lados da vírgula; malformada no fim sem newline final (o
+  caso exato do `trades.csv`); stream vazio; só lixo.
+  stats: gabarito conferido na mão; VWAP != média quando as qty diferem;
+  VWAP == média quando as qty são iguais; trade único; min/max independentes da
+  ordem de entrada.
+
+  Um dos testes documenta um comportamento que eu não sabia que existia:
+  `std::stod`/`std::stol` PARAM no primeiro caractere inválido e não lançam.
+  "101.50abc" vira 101.50 em silêncio e o parser aceita. O teste registra o que
+  o código faz HOJE — se um dia isso virar erro explícito, ele falha e a decisão
+  aparece, em vez de passar despercebida.
+
+O TESTE DOS TESTES (mutation testing na mão)
+  Suíte que passa não prova nada; suíte que nunca falha é decoração. Quebrei o
+  código de propósito, três vezes, e conferi que a suíte pega:
+
+    `<` virou `>` em min_price ....... cai "min e max nao dependem da ordem"
+    vwap ignorando a quantidade ...... cai "vwap difere da media simples"
+    parse sem contar malformada ...... cai "so com lixo nao produz trade valido"
+
+  Restaurado o código, 10/10 voltam a passar. Vale virar hábito: teste novo só
+  conta depois que eu vi ele falhar pelo motivo certo.
+
+VERIFICAÇÃO DESTA SESSÃO
+  - Build completo (nosso código com -Werror, tudo com ASan/UBSan): limpo.
+  - `ctest`: 10/10 em 0,16 s, sem finding de sanitizer.
+  - CLI: as quatro saídas e os quatro exit codes idênticos aos de antes da
+    extração — a refatoração não mudou comportamento observável.
+  - `-DFTE_BUILD_TESTS=OFF`: configura e compila sem rede.
+  - `format-check` passa. Ele pegou a ordem dos includes do arquivo de teste
+    novo; o alvo `format` corrigiu.
+
+COMO RODAR
+    cmake -S . -B build -G Ninja
+    cmake --build build
+    cd build && ctest --output-on-failure
+
+    ./build/ex01_trade_stats/trade_stats_tests "[parse]"   # só uma tag
+    ./build/ex01_trade_stats/trade_stats_tests --list-tests
+
+
+--------------------------------------------------------------------------------
+8. PENDÊNCIAS / O QUE FICOU DE PROPÓSITO
+--------------------------------------------------------------------------------
+
+- `trades.csv` tem uma última linha com o literal "dfgdrgrgrgrg" e sem newline
+  final. É intencional: é a fixture que exercita o contador de malformadas
+  (linha sem vírgula → `find` devolve `npos`). Agora esse caso também está
+  coberto por teste unitário, com o mesmo literal, então o CSV virou redundância
+  de conveniência — dá para limpá-lo sem perder cobertura, se um dia incomodar.
+
+- Min/max continuam escritos na mão, com laço explícito, porque o enunciado do
+  dia 1 pede isso. Em código de produção seriam `std::ranges::minmax_element`
+  numa passada só — hoje são duas passadas sobre o mesmo vector. Otimização
+  deliberadamente não feita: o exercício treina o laço. Com a suíte no lugar,
+  agora dá para trocar a implementação com rede de segurança — bom exercício
+  para quando a Fase 0 chegar em STL/algorithms (S3).
+
+- Vector vazio continua sendo PRECONDIÇÃO das quatro estatísticas, documentada
+  no `trade_stats.hpp` e garantida pelo guard no `main`. Não há teste para o
+  caso vazio porque o comportamento é UB (min/max acessam trades[0]; mean/vwap
+  dividem por zero) — testar UB é testar sorte. A alternativa real seria mudar a
+  assinatura para `std::optional<double>` ou `std::expected`; fica para a S4,
+  que é onde o roadmap trata error handling.
+
+- Não há teste de ponta a ponta do binário (argv, exit code, texto no stderr).
+  Os 10 casos cobrem lógica, não cabeamento. Os quatro caminhos de CLI seguem
+  verificados à mão. Candidato natural a um `add_test` do CTest chamando o
+  executável.
+
+- `format-check` e `ctest` ainda não estão plugados em hook nem CI. Os alvos
+  existem; o gatilho não.
 
 ================================================================================
