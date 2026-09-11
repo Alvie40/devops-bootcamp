@@ -1,0 +1,16 @@
+# Nos exercicios de C (estilo CS50), o binario compilado tem o mesmo nome
+# do fonte sem extensao (ex: cat.c -> cat), entao nao da pra usar um padrao
+# tipo "*.exe" ou "*.o" pra pegar tudo. Solucao: ignora tudo por padrao e
+# libera so o que e codigo/texto de verdade.
+
+# ignora tudo neste diretorio (e subdiretorios)...
+*
+
+# ...exceto diretorios (pra o git continuar descendo e aplicar as regras
+# abaixo em cada subpasta) e os arquivos que realmente queremos versionar
+!*/
+!*.c
+!*.h
+!.gitignore
+!README.md
+!Makefile

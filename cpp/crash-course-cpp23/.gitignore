@@ -1,0 +1,18 @@
+# Vários exercícios geram um binário com o mesmo nome do fonte sem extensão
+# (ex: 01_inicio.cpp -> 01_inicio), então um padrão tipo "*.out" não pega
+# tudo. Em vez de listar cada binário à mão, ignora tudo por padrão e libera
+# só o que é código/texto de verdade.
+
+# ignora tudo neste diretorio (e subdiretorios)...
+*
+
+# ...exceto diretorios (pra o git continuar descendo) e os arquivos que
+# realmente queremos versionar
+!*/
+!*.cpp
+!*.hpp
+!*.h
+!*.md
+!.gitignore
+!Makefile
+!medicoes.txt
