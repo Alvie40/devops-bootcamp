@@ -1,0 +1,109 @@
+name: devsecops-lab
+
+on:
+  push:
+    paths:
+      - "python/devsecops-lab/**"
+      - ".github/workflows/devsecops-lab.yml"
+  pull_request:
+    paths:
+      - "python/devsecops-lab/**"
+      - ".github/workflows/devsecops-lab.yml"
+
+defaults:
+  run:
+    working-directory: python/devsecops-lab
+
+jobs:
+  # SAST — audita o código que a gente escreveu. Bloqueia o merge: bug em código
+  # próprio é sempre corrigível na hora, não tem motivo pra deixar passar.
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+          publishToken: ""
+
+  # Secrets — audita o histórico + working tree. Bloqueia sempre: uma credencial
+  # commitada é incidente de segurança, não warning.
+  secrets:
+    name: Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # SCA — audita dependências de terceiros. Bloqueia em CRITICAL/HIGH; MEDIUM só
+  # reporta, senão uma CVE nova em transitiva trava todo merge sem dar tempo de
+  # avaliar/patchear.
+  sca:
+    name: SCA (Trivy fs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: python/devsecops-lab
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+  # Build + container scan — audita a imagem final (SO base + libs), não só o
+  # código. Bloqueia em CRITICAL/HIGH: é exatamente o tipo de vulnerabilidade que
+  # o troque-pra-slim do dia 2 do crash course eliminou (649 → 57).
+  container-scan:
+    name: Build + Trivy image
+    runs-on: ubuntu-latest
+    needs: [sast, secrets, sca]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t devsecops-lab:${{ github.sha }} .
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: devsecops-lab:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+  # SBOM — não é gate, é artefato. Publicado sempre, pra responder rápido quando
+  # sair uma CVE nova (ex.: Log4Shell) sem re-escanear tudo do zero.
+  sbom:
+    name: SBOM (Syft)
+    runs-on: ubuntu-latest
+    needs: [container-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t devsecops-lab:${{ github.sha }} .
+      - uses: anchore/sbom-action@v0
+        with:
+          image: devsecops-lab:${{ github.sha }}
+          format: cyclonedx-json
+          artifact-name: sbom-devsecops-lab.cyclonedx.json
+
+  # DAST — audita a app já rodando, de fora, como um atacante veria. Só reporta
+  # (não bloqueia): baseline scan pega coisa como header ausente, que costuma
+  # exigir decisão de arquitetura, não fix de uma linha sob pressão de CI.
+  dast:
+    name: DAST (ZAP baseline)
+    runs-on: ubuntu-latest
+    needs: [container-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run app
+        run: |
+          docker build -t devsecops-lab:${{ github.sha }} .
+          docker run -d --name lab -p 8000:8000 devsecops-lab:${{ github.sha }}
+          sleep 3
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:8000/"
+          cmd_options: "-I"
