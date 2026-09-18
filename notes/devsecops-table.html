@@ -279,7 +279,9 @@
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    .card-body { padding: 11px 14px; gap: 9px; }
+    .card-body { padding: 10px 14px; gap: 7px; }
+    .actions { gap: 6px; }
+    .field .label { font-size: 9.5px; }
     .field, .def, .action, .result {
       break-inside: avoid;
       page-break-inside: avoid;
@@ -366,7 +368,7 @@
             <div class="action"><span class="status done">implementada</span><span>Pinei versão corrigida exata (<code>==</code>) de cada lib e reescaneei.</span><span class="action-result">→ 20 → <strong>0 CVEs</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Descobri que range (<code>>=</code>) faz o Trivy nem escanear — só versão fixa funciona.</span><span class="action-result">→ virou regra pro time</span></div>
             <div class="action"><span class="status done">implementada</span><span>Configurei <code>.github/dependabot.yml</code> pra pip, base image do Dockerfile e GitHub Actions.</span><span class="action-result">→ atualização <strong>automática</strong> semanal</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>O gate do CI ainda não rodou contra um PR de verdade — precisa de um push pra GitHub.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Rodei o gate de SCA num PR real (#1) no GitHub Actions. O 1º run falhou por bug meu no workflow (tag <code>trivy-action@0.28.0</code> inexistente — a certa é <code>v0.36.0</code>), corrigido.</span><span class="action-result">→ <strong>verde</strong> no CI</span></div>
           </div>
         </div>
         <div class="field job">
@@ -394,9 +396,11 @@
             <div class="action"><span class="status done">implementada</span><span>Troquei a base pra <code>-slim</code>.</span><span class="action-result">→ 654 → <strong>62</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Atualizei <code>fastapi</code> (puxou <code>starlette</code> sem CVE).</span><span class="action-result">→ 62 → <strong>59</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Tentei atualizar <code>pip</code>/<code>setuptools</code>/<code>wheel</code> pra fechar as 2 CVEs restantes do Python.</span><span class="action-result">→ trocou por outras 2, sem ganho — revertido</span></div>
-            <div class="action"><span class="status done">implementada</span><span>Multi-stage build pra <code>Dockerfile.distroless</code> (builder em <code>-slim</code>, runtime em <code>gcr.io/distroless/python3-debian12</code>) — <code>perl</code>/<code>util-linux</code> nunca são instalados. Testado de pé (<code>curl</code> no <code>/health</code>, headers intactos).</span><span class="action-result">→ 59 → <strong>49</strong></span></div>
-            <div class="action"><span class="status done">implementada</span><span>Trigger <code>schedule</code> (cron semanal) no workflow pra pegar patch de segurança na mesma tag da base image sem depender de push.</span><span class="action-result">→ rebuild <strong>toda segunda</strong></span></div>
-            <div class="action"><span class="status skip">residual sem fix</span><span>Os 2 CRITICAL que sobraram (<code>libsqlite3-0</code>, <code>zlib1g</code>) não têm patch upstream disponível ainda — confirmado no próprio Trivy (<code>Fixed Version: None</code>). Não é pendência de esforço.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Multi-stage <code>Dockerfile.distroless</code> — testado de pé, mas superado pela opção simples abaixo.</span><span class="action-result">→ 59 → 49 (2 CRITICAL)</span></div>
+            <div class="action"><span class="status done">implementada</span><span><code>apt-get upgrade</code> (os CRITICAL do <code>perl-base</code> tinham fix) + remover <code>setuptools</code>/<code>wheel</code> (não usados em runtime). Adotado; mantém shell.</span><span class="action-result">→ 59 → <strong>44</strong>, 0 CRITICAL, <strong>0</strong> com <code>--ignore-unfixed</code></span></div>
+            <div class="action"><span class="status done">implementada</span><span>Gate do CI com <code>ignore-unfixed</code>: bloqueia o que tem correção disponível; <code>Fixed Version: None</code> vira monitoramento.</span><span class="action-result">→ <strong>verde</strong> no CI</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Trigger <code>schedule</code> (cron semanal) pra pegar patch na mesma tag da base image.</span><span class="action-result">→ rebuild <strong>toda segunda</strong></span></div>
+            <div class="action"><span class="status skip">residual sem fix</span><span>Os 44 que sobram no slim endurecido não têm patch upstream ainda — confirmado pelo Trivy (<code>--ignore-unfixed</code> = 0). Não é pendência de esforço; o cron semanal reescaneia.</span></div>
           </div>
         </div>
         <div class="field job">
@@ -406,7 +410,7 @@
         </div>
       </div>
       <div class="result">
-        <span class="pill before">654</span><span class="arrow">→</span><span class="pill after">49</span><span class="note">slim: 59 · distroless: 49 · 2 CRITICAL sem fix upstream ainda</span>
+        <span class="pill before">654</span><span class="arrow">→</span><span class="pill after">44</span><span class="note">slim endurecido: 44 (0 CRITICAL) · distroless: 49 · 0 corrigíveis restantes</span>
       </div>
     </div>
 
@@ -423,7 +427,7 @@
           <div class="actions">
             <div class="action"><span class="status done">implementada</span><span>Gerei o SBOM do repo real e do app de lab em CycloneDX.</span><span class="action-result">→ <strong>40 componentes</strong> (repo) / <strong>2872</strong> (imagem)</span></div>
             <div class="action"><span class="status done">implementada</span><span>Simulei uma CVE hipotética em <code>anyio &lt; 4.16.0</code> e consultei o <code>sbom.json</code> já gerado em vez de re-escanear a imagem.</span><span class="action-result">→ <strong>anyio 4.15.1</strong> achado em milissegundos</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Confirmar que o job de CI publica o artefato a cada build — precisa de um push pra GitHub.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Confirmei no PR #1 que o job de SBOM roda no CI e publica o artefato CycloneDX a cada build.</span><span class="action-result">→ <strong>verde</strong> no CI</span></div>
           </div>
         </div>
         <div class="field job">
@@ -449,7 +453,8 @@
           <span class="label">Ações</span>
           <div class="actions">
             <div class="action"><span class="status done">implementada</span><span>Middleware adicionando <code>X-Content-Type-Options</code>, <code>Cross-Origin-Resource-Policy</code> e <code>Cache-Control</code>.</span><span class="action-result">→ 3 → <strong>1 WARN</strong></span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Configurar scan autenticado (hoje só cobre rota anônima); o WARN residual é efeito esperado do próprio fix — decisão consciente, não pendência.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Rodei o ZAP no CI (PR #1). O scan bateu com o local (66 PASS, 1 WARN, 0 FAIL); o job falhou 2× por config: token sem <code>issues: write</code> (→ <code>allow_issue_writing: false</code>) e upload de artefato na API aposentada (→ <code>action-baseline@v0.15.0</code>).</span><span class="action-result">→ <strong>verde</strong> no CI</span></div>
+            <div class="action"><span class="status skip">decisão: não fazer</span><span>Scan autenticado — a app não tem autenticação; adicionar só pra testar a ferramenta seria inflar escopo. O WARN residual é efeito esperado do próprio fix.</span></div>
           </div>
         </div>
         <div class="field job">

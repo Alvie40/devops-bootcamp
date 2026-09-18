@@ -399,14 +399,16 @@ it immediately.
 
 **75. What proves a pipeline actually works end-to-end?**
 Running it against a real PR and watching the jobs execute. I pushed a trivial
-change and opened a PR, and the first real run found three problems the paper
-version hid: (1) I'd guessed a nonexistent action tag (`trivy-action@0.28.0` —
-the repo uses `v0.36.0`); (2) the container gate blocked the very findings I'd
-documented as accepted, forcing a real policy decision (block only what has a fix
-available, via `ignore-unfixed`); (3) the ZAP action failed with "Resource not
-accessible by integration" because the default `GITHUB_TOKEN` can't create issues
-— the scan itself had matched my local result exactly. None of that shows up until
-the pipeline actually runs.
+change and opened a PR, and the real runs found four problems the paper version
+hid: (1) I'd guessed a nonexistent action tag (`trivy-action@0.28.0` — the repo
+uses `v0.36.0`); (2) the container gate blocked the very findings I'd documented
+as accepted, forcing a real policy decision (block only what has a fix available,
+via `ignore-unfixed`); (3) the ZAP action failed with "Resource not accessible by
+integration" because the default `GITHUB_TOKEN` can't create issues; (4) after
+that, its artifact upload failed because the pinned action version used a
+retired GitHub artifacts API — fixed by bumping it. The ZAP scan itself matched my
+local result exactly every time (66 PASS, 1 WARN). After those fixes all six jobs
+went green. None of that shows up until the pipeline actually runs.
 
 **76. How do you reduce alert fatigue across multiple security tools?**
 Tune each ruleset to actual risk tolerance, route only actionable findings to
