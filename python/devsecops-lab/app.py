@@ -20,3 +20,5 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+# trigger CI: confirma que o workflow devsecops-lab.yml roda de ponta a ponta
