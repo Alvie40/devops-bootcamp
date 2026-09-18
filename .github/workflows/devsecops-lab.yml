@@ -75,6 +75,9 @@ jobs:
         with:
           image-ref: devsecops-lab:${{ github.sha }}
           severity: CRITICAL,HIGH
+          # bloqueia so o que tem correcao disponivel; "Fixed Version: None" e gap
+          # de upstream, nao de esforco, e vira monitoramento (o cron semanal reescaneia)
+          ignore-unfixed: true
           exit-code: "1"
 
   # SBOM — não é gate, é artefato. Publicado sempre, pra responder rápido quando
