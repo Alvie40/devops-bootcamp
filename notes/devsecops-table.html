@@ -180,6 +180,11 @@
     color: var(--accent);
     border: 1px solid var(--accent-dim);
   }
+  .status.skip {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
   .action-result {
     font-family: "IBM Plex Mono", monospace;
     font-size: 12px;
@@ -306,7 +311,8 @@
           <span class="label">Ações</span>
           <div class="actions">
             <div class="action"><span class="status done">implementada</span><span>Rodei o Gitleaks contra o histórico real e provoquei um leak num repo descartável pra confirmar o comportamento.</span><span class="action-result">→ <strong>0 leaks</strong> reais, causa raiz explicada</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Instalar como pre-commit hook no repo (hoje só roda manual) e rotacionar uma credencial de verdade após um leak.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Instalei <code>.pre-commit-config.yaml</code> com o hook oficial do Gitleaks e testei nos dois sentidos: bloqueou uma chave AWS aleatória, deixou passar <code>AKIAIOSFODNN7EXAMPLE</code> (allowlist padrão — é o placeholder oficial da doc da AWS).</span><span class="action-result">→ hook <strong>ativo e validado</strong></span></div>
+            <div class="action"><span class="status skip">decisão: não fazer</span><span>Rotacionar uma credencial de verdade após um leak — exigiria um leak real de produção pra praticar em cima; risco não vale o exercício.</span></div>
           </div>
         </div>
         <div class="field job">
@@ -359,7 +365,8 @@
           <div class="actions">
             <div class="action"><span class="status done">implementada</span><span>Pinei versão corrigida exata (<code>==</code>) de cada lib e reescaneei.</span><span class="action-result">→ 20 → <strong>0 CVEs</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Descobri que range (<code>>=</code>) faz o Trivy nem escanear — só versão fixa funciona.</span><span class="action-result">→ virou regra pro time</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Configurar Dependabot/Renovate no repo real pra manter isso automático, e o gate do CI ainda não rodou contra um PR de verdade.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Configurei <code>.github/dependabot.yml</code> pra pip, base image do Dockerfile e GitHub Actions.</span><span class="action-result">→ atualização <strong>automática</strong> semanal</span></div>
+            <div class="action"><span class="status todo">pendente</span><span>O gate do CI ainda não rodou contra um PR de verdade — precisa de um push pra GitHub.</span></div>
           </div>
         </div>
         <div class="field job">
@@ -387,7 +394,9 @@
             <div class="action"><span class="status done">implementada</span><span>Troquei a base pra <code>-slim</code>.</span><span class="action-result">→ 654 → <strong>62</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Atualizei <code>fastapi</code> (puxou <code>starlette</code> sem CVE).</span><span class="action-result">→ 62 → <strong>59</strong></span></div>
             <div class="action"><span class="status done">implementada</span><span>Tentei atualizar <code>pip</code>/<code>setuptools</code>/<code>wheel</code> pra fechar as 2 CVEs restantes do Python.</span><span class="action-result">→ trocou por outras 2, sem ganho — revertido</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Multi-stage build / distroless pra remover <code>perl</code>/<code>util-linux</code> não usados pela app (3 CRITICAL residuais) e agendar rebuild periódico pra pegar patch da base image.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Multi-stage build pra <code>Dockerfile.distroless</code> (builder em <code>-slim</code>, runtime em <code>gcr.io/distroless/python3-debian12</code>) — <code>perl</code>/<code>util-linux</code> nunca são instalados. Testado de pé (<code>curl</code> no <code>/health</code>, headers intactos).</span><span class="action-result">→ 59 → <strong>49</strong></span></div>
+            <div class="action"><span class="status done">implementada</span><span>Trigger <code>schedule</code> (cron semanal) no workflow pra pegar patch de segurança na mesma tag da base image sem depender de push.</span><span class="action-result">→ rebuild <strong>toda segunda</strong></span></div>
+            <div class="action"><span class="status skip">residual sem fix</span><span>Os 2 CRITICAL que sobraram (<code>libsqlite3-0</code>, <code>zlib1g</code>) não têm patch upstream disponível ainda — confirmado no próprio Trivy (<code>Fixed Version: None</code>). Não é pendência de esforço.</span></div>
           </div>
         </div>
         <div class="field job">
@@ -397,7 +406,7 @@
         </div>
       </div>
       <div class="result">
-        <span class="pill before">654</span><span class="arrow">→</span><span class="pill after">59</span><span class="note">3 CRITICAL residuais no SO (Perl não usado pela app)</span>
+        <span class="pill before">654</span><span class="arrow">→</span><span class="pill after">49</span><span class="note">slim: 59 · distroless: 49 · 2 CRITICAL sem fix upstream ainda</span>
       </div>
     </div>
 
@@ -412,8 +421,9 @@
         <div class="field">
           <span class="label">Ações</span>
           <div class="actions">
-            <div class="action"><span class="status done">implementada</span><span>Gerei o SBOM do repo real e do app de lab em CycloneDX.</span><span class="action-result">→ <strong>40 componentes</strong> catalogados</span></div>
-            <div class="action"><span class="status todo">pendente</span><span>Simular uma CVE nova de verdade e consultar o SBOM pra responder em minutos (nunca fiz esse exercício), e confirmar que o job de CI publica o artefato a cada build.</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Gerei o SBOM do repo real e do app de lab em CycloneDX.</span><span class="action-result">→ <strong>40 componentes</strong> (repo) / <strong>2872</strong> (imagem)</span></div>
+            <div class="action"><span class="status done">implementada</span><span>Simulei uma CVE hipotética em <code>anyio &lt; 4.16.0</code> e consultei o <code>sbom.json</code> já gerado em vez de re-escanear a imagem.</span><span class="action-result">→ <strong>anyio 4.15.1</strong> achado em milissegundos</span></div>
+            <div class="action"><span class="status todo">pendente</span><span>Confirmar que o job de CI publica o artefato a cada build — precisa de um push pra GitHub.</span></div>
           </div>
         </div>
         <div class="field job">
