@@ -118,7 +118,26 @@ mais complexidade no Dockerfile e um warning novo de rodar pip como root. Revert
 por outro sem eu perceber — sempre reverificar com o scanner depois de "corrigir",
 nunca assumir que upgrade == menos risco.
 
-**Residual que EXISTIA e foi resolvido em 18/09/2026** — multi-stage build pra
+**Correção de rota (18/09/2026, depois do primeiro run real do CI):** o gate
+`container-scan` barrou o `slim` com os 59 achados, e ao medir a opção que eu **não**
+tinha tentado antes do distroless — a mais simples — ela ganhou:
+
+| Variante | Total CRITICAL+HIGH | CRITICAL | com `--ignore-unfixed` |
+|---|---|---|---|
+| `slim` (antes) | 59 | 3 | 15 |
+| `slim` + `apt-get upgrade` | 46 | **0** | 2 |
+| `slim` + `apt-get upgrade` + remover `setuptools`/`wheel` (**adotado**) | **44** | **0** | **0** |
+| `distroless` (multi-stage, abaixo) | 49 | 2 | 19 |
+
+Ou seja: pulei direto pro distroless sem antes rodar `apt-get upgrade` (os CRITICAL do
+`perl-base` tinham `Fixed Version` disponível o tempo todo) e sem notar que
+`setuptools`/`wheel` não são usados em runtime. A versão `slim` endurecida é melhor em
+todos os números **e** mantém shell pra debug. O `Dockerfile` real agora é ela, e o gate
+do CI usa `ignore-unfixed: true` (bloqueia o que tem correção; `Fixed Version: None`
+vira monitoramento). O `Dockerfile.distroless` fica no repo como comparação, não como
+recomendação.
+
+**Distroless — o que foi feito antes dessa correção** — multi-stage build pra
 `Dockerfile.distroless`: stage builder em `python:3.11-slim` faz
 `pip install --target=/app/deps`, stage final copia só `/app/deps` + `app.py` pra
 `gcr.io/distroless/python3-debian12` (sem shell, sem gerenciador de pacotes, sem
@@ -217,7 +236,7 @@ fica documentado como decisão consciente, não como bug pendente.
 | Secrets | 0 (real) / 1 (demo provocada) | 0 | pre-commit hook instalado e testado (bloqueia de verdade) |
 | SAST | 3/4 (auto vs auto+custom) | — | regra custom escrita; padrões de fix documentados |
 | SCA | 20 CVEs | **0** | versões pinadas e corrigidas + Dependabot configurado |
-| Container | 654 (full) → 59 (slim) | **49 (distroless)** | slim + `fastapi` atualizado + multi-stage distroless + rebuild agendado; 2 residuais sem patch upstream disponível |
+| Container | 654 (full) → 59 (slim) | **44 (slim endurecido), 0 com `--ignore-unfixed`** | slim + `fastapi` atualizado + `apt-get upgrade` + remover `setuptools`/`wheel` + rebuild agendado; distroless (49) testado e superado pela opção mais simples |
 | SBOM | — | 40 componentes (repo) / 2872 (imagem) | inventário + exercício real de consulta a uma CVE simulada |
 | DAST | 3 WARN | **1 WARN** | headers de segurança adicionados; 1 residual é efeito colateral esperado |
 

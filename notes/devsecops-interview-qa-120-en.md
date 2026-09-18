@@ -276,15 +276,22 @@ It unpacks the image layer by layer, lists installed OS packages (dpkg/apk/rpm
 metadata) plus language-level packages inside, and cross-references the same CVE
 database used for filesystem scans.
 
-**53. What further step did you take, and what was the result?**
-A multi-stage build: install dependencies in a `python:3.11-slim` builder stage,
-copy only the app + dependencies into a `distroless` runtime image (no shell, no
-package manager). Dropped further to 49 — `perl` and `util-linux`, which caused
-the earlier CRITICAL findings, are never installed in distroless at all.
+**53. What further step did you take beyond `-slim`, and what was the result?**
+I first tried a multi-stage build into a `distroless` runtime — it dropped to 49,
+but still with 2 CRITICAL. Then my CI gate blocked the plain slim image, so I
+measured the simplest option I had skipped: `apt-get upgrade` in the Dockerfile
+(the CRITICAL `perl-base` findings had fixes available all along) plus removing
+`setuptools`/`wheel`, which the app doesn't use at runtime. That gave 44 findings,
+0 CRITICAL, and 0 with `--ignore-unfixed` — better than distroless on every
+number, and it keeps a shell. Lesson: measure the simple option before the
+sophisticated one.
 
-**54. What's the tradeoff of distroless?**
+**54. What's the tradeoff of distroless, and did you end up using it?**
 No shell inside the running container — `docker exec sh` doesn't work, so
 debugging a live incident depends entirely on logs and external observability.
+I didn't adopt it: the hardened slim image beat it on the numbers, so paying the
+debuggability cost bought nothing. Distroless makes sense when the residual attack
+surface actually matters more than operability — I measured instead of assuming.
 
 **55. How do you validate a hardened image still works?**
 Actually run it and test real behavior — I curled the `/health` endpoint and
@@ -392,8 +399,14 @@ it immediately.
 
 **75. What proves a pipeline actually works end-to-end?**
 Running it against a real PR and watching the jobs execute. I pushed a trivial
-change and opened a PR specifically to verify the workflow's jobs run for real,
-not just "should work" on paper.
+change and opened a PR, and the first real run found three problems the paper
+version hid: (1) I'd guessed a nonexistent action tag (`trivy-action@0.28.0` —
+the repo uses `v0.36.0`); (2) the container gate blocked the very findings I'd
+documented as accepted, forcing a real policy decision (block only what has a fix
+available, via `ignore-unfixed`); (3) the ZAP action failed with "Resource not
+accessible by integration" because the default `GITHUB_TOKEN` can't create issues
+— the scan itself had matched my local result exactly. None of that shows up until
+the pipeline actually runs.
 
 **76. How do you reduce alert fatigue across multiple security tools?**
 Tune each ruleset to actual risk tolerance, route only actionable findings to
