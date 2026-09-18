@@ -42,20 +42,23 @@ docker stop devsecops-lab-run && docker rm devsecops-lab-run
 Três Dockerfiles pra comparar, do pior pro melhor:
 
 - `Dockerfile.full` — `python:3.11` completo. Só existe pra comparação (654 vulns).
-- `Dockerfile` — `python:3.11-slim`, o que a CI usa hoje (59 vulns).
+- `Dockerfile` — `python:3.11-slim` + `apt-get upgrade` + remoção de
+  `setuptools`/`wheel` (não usados em runtime). **É o que a CI usa e a melhor
+  opção medida:** 44 vulns, 0 CRITICAL, e 0 com `--ignore-unfixed`. Mantém shell.
+  (O slim "puro" tinha 59; o `apt-get upgrade` fecha os corrigíveis do SO.)
 - `Dockerfile.distroless` — multi-stage: builder em `python:3.11-slim` faz o
   `pip install --target`, runtime final é `gcr.io/distroless/python3-debian12`
   (sem shell, sem `perl`, sem `util-linux`) — 49 vulns, 2 CRITICAL residuais
-  (`libsqlite3-0`/`zlib1g`, ambas sem patch upstream disponível ainda — não é que
-  não corrigimos, é que ainda não existe fix). Custo: sem shell dentro do
-  container, `docker exec sh` não funciona pra debug — troca debugabilidade por
-  superfície de ataque menor. Testado de pé (`curl` no `/health` responde 200 com
-  os headers de segurança intactos).
+  (`libsqlite3-0`/`zlib1g`, sem patch upstream). **Foi superado pelo slim
+  endurecido acima** e ainda custa a debugabilidade (`docker exec sh` não
+  funciona). Fica como comparação; a lição é medir a opção simples antes da
+  sofisticada.
 
 CI em [.github/workflows/devsecops-lab.yml](../../.github/workflows/devsecops-lab.yml):
 SAST + secrets + SCA bloqueiam o merge; container scan bloqueia em CRITICAL/HIGH
-(hoje aponta pro `Dockerfile` slim); SBOM é artefato publicado, não gate; DAST só
-reporta. Workflow também roda em `schedule` (segunda 06:00 UTC) pra pegar patch de
+**que tenham correção disponível** (`ignore-unfixed: true` — `Fixed Version: None`
+é gap de upstream e vira monitoramento); SBOM é artefato publicado, não gate; DAST
+só reporta (sem criar issue — o `GITHUB_TOKEN` padrão não tem `issues: write`). Workflow também roda em `schedule` (segunda 06:00 UTC) pra pegar patch de
 segurança na mesma tag da base image sem depender de alguém tocar no código.
 [.github/dependabot.yml](../../.github/dependabot.yml) mantém `requirements.txt`,
 a base image do Dockerfile e as GitHub Actions do repo em dia automaticamente.
