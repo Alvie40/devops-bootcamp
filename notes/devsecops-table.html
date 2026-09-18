@@ -263,6 +263,25 @@
     border-radius: 4px;
     padding: 1px 5px;
   }
+
+  @media print {
+    @page { size: letter; margin: 12mm 10mm; }
+    body { padding-block: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .wrap { max-width: none; padding-inline: 0; }
+    header { margin-bottom: 16px; }
+    .grid { grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+    .card {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .card-body { padding: 11px 14px; gap: 9px; }
+    .field, .def, .action, .result {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .field .value, .def, .action { font-size: 12px; line-height: 1.42; }
+    footer { break-inside: avoid; page-break-inside: avoid; }
+  }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
@@ -279,6 +298,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">01</span><span class="tool">Gitleaks</span></div><span class="tag">Secrets</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">Secrets scanning</span> — não é sigla: é a prática de detectar segredos (chaves, senhas, tokens) commitados no código ou no histórico do git antes que alguém os explore.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">CLI em Go que varre o <code>git log</code> commit por commit (não só o working tree), aplicando regex + detecção de entropia contra padrões conhecidos (chave AWS, token Stripe/GitHub etc.) e regras próprias em TOML.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value"><code>gitleaks detect --source . --no-banner</code> contra o repo inteiro. Plano: virar pre-commit hook, hoje ainda roda manual.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">Credencial hardcoded commitada no git — some do arquivo, mas não do histórico.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">0 leaks no repo real. Demo provocada (repo git descartável): removi a chave num commit "fix" e o Gitleaks ainda achou, apontando o commit antigo — <code>git show</code> confirmou que a chave inteira ainda existe lá.</span></div>
         <div class="field">
@@ -303,6 +324,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">02</span><span class="tool">Semgrep</span></div><span class="tag">SAST</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">SAST</span> = Static Application Security Testing — analisa o código-fonte sem executá-lo, procurando padrões conhecidos de vulnerabilidade.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">Parseia o código numa AST (árvore de sintaxe) e casa "patterns" escritos numa DSL parecida com o próprio código-fonte contra essa árvore — é estrutural, não regex de texto, mas ainda depende de existir um pattern pro bug exato.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value"><code>semgrep scan --config auto .</code> no dia a dia. Quando acho um gap, escrevo regra própria em YAML e rodo <code>--config auto --config minha-regra.yaml</code> junto.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">Bug de segurança no código que você mesmo escreveu (injection, hash fraco, secret hardcoded).</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">Ruleset padrão (<code>auto</code>) pegou 3 de 4 bugs plantados — perdeu <code>os.system("..."+var)</code>, mesma classe de <code>subprocess.call(shell=True)</code>, só com sintaxe diferente.</span></div>
         <div class="field">
@@ -327,6 +350,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">03</span><span class="tool">Trivy fs</span></div><span class="tag">SCA</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">SCA</span> = Software Composition Analysis — audita as dependências de terceiros que o projeto importa, cruzando nome+versão com bancos de CVE conhecida.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">Lê o manifesto de dependências (<code>requirements.txt</code>, lockfile etc.), extrai nome+versão exata de cada pacote, e cruza contra um banco de CVE baixado e cacheado localmente — puro lookup, nunca analisa o código da lib em si.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value"><code>trivy fs --scanners vuln .</code> antes de subir uma dependência nova ou como gate de CI. Precisa de versão pinada (<code>==</code>) — range não é lido.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">CVE conhecida em biblioteca de terceiros que o projeto importa — não é código seu, mas é seu risco.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>requests==2.6.0</code> / <code>pyyaml==5.1</code> / <code>urllib3==1.24.1</code> → 20 CVEs (3 críticas), incluindo RCE no PyYAML via <code>FullLoader</code>.</span></div>
         <div class="field">
@@ -352,6 +377,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">04</span><span class="tool">Trivy image</span></div><span class="tag">Container</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">Container scanning</span> — não é sigla: escaneia a imagem final (SO base + libs de sistema + app), não só o código-fonte que você escreveu.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">Mesma engine de CVE do Trivy fs, mas desmonta a imagem Docker camada por camada, lista os pacotes do SO instalados (dpkg/apk/rpm) + os pacotes de linguagem que estão dentro da imagem, e cruza tudo contra o mesmo banco de CVE.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value"><code>docker build -t app:tag .</code> seguido de <code>trivy image --severity CRITICAL,HIGH app:tag</code>. Comparo antes/depois toda vez que troco base image ou atualizo dependência.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">Vulnerabilidade herdada da imagem base (SO + libs de sistema) — invisível olhando só o código da app.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>python:3.11</code> completo = 654 CVEs críticas/altas, quase tudo do Debian base (não da app).</span></div>
         <div class="field">
@@ -378,6 +405,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">05</span><span class="tool">Syft</span></div><span class="tag">SBOM</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">SBOM</span> = Software Bill of Materials — inventário formal de tudo que compõe o artefato (componentes, versões, licenças), pra responder rápido quando sai uma CVE nova.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">Também desmonta imagem/diretório como o Trivy, mas em vez de comparar contra CVE, só cataloga tudo que encontra (pacotes de SO, libs de linguagem, binários) e serializa num formato padrão (CycloneDX ou SPDX) — inventário puro, sem lookup de vulnerabilidade.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value"><code>syft dir:. -o cyclonedx-json > sbom.json</code> depois de cada build. Objetivo: publicar como artefato do CI, não gerar manual.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">Sem inventário, uma CVE nova (ex.: Log4Shell) exige re-escanear tudo do zero pra saber se te afeta.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">SBOM do repo real = 40 componentes em CycloneDX, incluindo GitHub Actions do CI — não só libs de linguagem.</span></div>
         <div class="field">
@@ -402,6 +431,8 @@
       <div class="card-head"><div class="tool-group"><span class="num">06</span><span class="tool">OWASP ZAP</span></div><span class="tag">DAST</span></div>
       <div class="card-body">
         <div class="def"><span class="acronym">DAST</span> = Dynamic Application Security Testing — ataca a aplicação já rodando, de fora, simulando um atacante real; nunca olha o código-fonte.</div>
+        <div class="field"><span class="label">Como funciona</span><span class="value">Sobe um proxy que primeiro navega pela app (spider/crawl) descobrindo rotas, depois manda os requests capturados de volta com variações (headers ausentes, payloads simples) e audita as respostas — tudo via HTTP, de fora.</span></div>
+        <div class="field"><span class="label">Como eu uso</span><span class="value">Subo a app com <code>docker run</code>, depois <code>docker run zaproxy/zap-stable zap-baseline.py -t http://host.docker.internal:PORT/</code> — o "baseline" é o modo rápido e majoritariamente passivo, não-destrutivo.</span></div>
         <div class="field"><span class="label">Resolve</span><span class="value">Falha que só existe com a app rodando de verdade (headers, config de runtime) — invisível lendo o código-fonte.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>app.py</code> de 12 linhas, sem nenhum bug de lógica, ainda assim com 3 headers de segurança ausentes em runtime.</span></div>
         <div class="field">
