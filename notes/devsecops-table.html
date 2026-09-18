@@ -188,6 +188,44 @@
   }
   .action-result strong { color: var(--ok); font-weight: 600; }
 
+  .def {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .def .acronym {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .job {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .match {
+    display: inline-flex;
+    align-self: flex-start;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+    border-radius: 5px;
+    padding: 2px 7px;
+  }
+  .match.explicit { background: var(--ok-bg); color: var(--ok); }
+  .match.implicit {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+  }
+  .job .value { font-size: 13.5px; line-height: 1.5; }
+
   .result {
     margin-top: auto;
     display: flex;
@@ -232,7 +270,7 @@
   <header>
     <div class="eyebrow">DevSecOps crash course — 17–18/09/2026</div>
     <h1>Achado → mitigação, ferramenta por ferramenta</h1>
-    <p class="sub">Cada linha é uma ferramenta rodada de verdade contra código/dependências/imagem/app reais neste crash course — o problema que ela existe pra resolver, o que apareceu na prática, e a correção aplicada e reverificada com a própria ferramenta.</p>
+    <p class="sub">Cada card é uma ferramenta rodada de verdade contra código/dependências/imagem/app reais — a categoria que ela cobre (sigla explicada), o problema que apareceu na prática, as ações tomadas (e as que ainda faltam), e se o item aparece explicitamente no anúncio da vaga de Staff DevSecOps da Analog Devices (a mesma que motivou a call de triagem com a Casey Galvin, 22/09).</p>
   </header>
 
   <div class="grid">
@@ -240,6 +278,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">01</span><span class="tool">Gitleaks</span></div><span class="tag">Secrets</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">Secrets scanning</span> — não é sigla: é a prática de detectar segredos (chaves, senhas, tokens) commitados no código ou no histórico do git antes que alguém os explore.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">Credencial hardcoded commitada no git — some do arquivo, mas não do histórico.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">0 leaks no repo real. Demo provocada (repo git descartável): removi a chave num commit "fix" e o Gitleaks ainda achou, apontando o commit antigo — <code>git show</code> confirmou que a chave inteira ainda existe lá.</span></div>
         <div class="field">
@@ -248,6 +287,11 @@
             <div class="action"><span class="status done">implementada</span><span>Rodei o Gitleaks contra o histórico real e provoquei um leak num repo descartável pra confirmar o comportamento.</span><span class="action-result">→ <strong>0 leaks</strong> reais, causa raiz explicada</span></div>
             <div class="action"><span class="status todo">pendente</span><span>Instalar como pre-commit hook no repo (hoje só roda manual) e rotacionar uma credencial de verdade após um leak.</span></div>
           </div>
+        </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match implicit">implícita</span>
+          <span class="value">Não aparece como sigla isolada no anúncio, mas é a base de qualquer pipeline seguro — está implícita em "SSDLC" e em secrets management dentro de AWS (IAM/KMS), que a vaga cita.</span>
         </div>
       </div>
       <div class="result">
@@ -258,6 +302,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">02</span><span class="tool">Semgrep</span></div><span class="tag">SAST</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">SAST</span> = Static Application Security Testing — analisa o código-fonte sem executá-lo, procurando padrões conhecidos de vulnerabilidade.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">Bug de segurança no código que você mesmo escreveu (injection, hash fraco, secret hardcoded).</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">Ruleset padrão (<code>auto</code>) pegou 3 de 4 bugs plantados — perdeu <code>os.system("..."+var)</code>, mesma classe de <code>subprocess.call(shell=True)</code>, só com sintaxe diferente.</span></div>
         <div class="field">
@@ -266,6 +311,11 @@
             <div class="action"><span class="status done">implementada</span><span>Escrevi uma regra Semgrep própria em YAML (<code>pattern: os.system("..." + $VAR)</code>) fechando exatamente o gap.</span><span class="action-result">→ 3 → <strong>4 findings</strong></span></div>
             <div class="action"><span class="status todo">pendente</span><span>Aplicar os padrões de fix no código real (sem <code>shell=True</code>, hash com <code>scrypt</code>/bcrypt, secret em variável de ambiente) — hoje só existem no arquivo de demo.</span></div>
           </div>
+        </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match explicit">citada explicitamente</span>
+          <span class="value">SAST é uma das siglas do anúncio — um dos gaps centrais que o job-bot mapeou antes da candidatura, ao lado de DAST/SCA/SBOM.</span>
         </div>
       </div>
       <div class="result">
@@ -276,6 +326,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">03</span><span class="tool">Trivy fs</span></div><span class="tag">SCA</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">SCA</span> = Software Composition Analysis — audita as dependências de terceiros que o projeto importa, cruzando nome+versão com bancos de CVE conhecida.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">CVE conhecida em biblioteca de terceiros que o projeto importa — não é código seu, mas é seu risco.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>requests==2.6.0</code> / <code>pyyaml==5.1</code> / <code>urllib3==1.24.1</code> → 20 CVEs (3 críticas), incluindo RCE no PyYAML via <code>FullLoader</code>.</span></div>
         <div class="field">
@@ -286,6 +337,11 @@
             <div class="action"><span class="status todo">pendente</span><span>Configurar Dependabot/Renovate no repo real pra manter isso automático, e o gate do CI ainda não rodou contra um PR de verdade.</span></div>
           </div>
         </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match explicit">citada explicitamente</span>
+          <span class="value">SCA está no anúncio ao lado de SAST/DAST/SBOM — mesmo bloco de gap mapeado pelo job-bot.</span>
+        </div>
       </div>
       <div class="result">
         <span class="pill before">20 CVEs</span><span class="arrow">→</span><span class="pill after">0 CVEs</span>
@@ -295,6 +351,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">04</span><span class="tool">Trivy image</span></div><span class="tag">Container</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">Container scanning</span> — não é sigla: escaneia a imagem final (SO base + libs de sistema + app), não só o código-fonte que você escreveu.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">Vulnerabilidade herdada da imagem base (SO + libs de sistema) — invisível olhando só o código da app.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>python:3.11</code> completo = 654 CVEs críticas/altas, quase tudo do Debian base (não da app).</span></div>
         <div class="field">
@@ -306,6 +363,11 @@
             <div class="action"><span class="status todo">pendente</span><span>Multi-stage build / distroless pra remover <code>perl</code>/<code>util-linux</code> não usados pela app (3 CRITICAL residuais) e agendar rebuild periódico pra pegar patch da base image.</span></div>
           </div>
         </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match implicit">implícita</span>
+          <span class="value">Não vem como termo isolado no anúncio, mas cai dentro do escopo cloud-native que a vaga cita via ECS/EKS — sem container scanning não dá pra rodar CVE-free nesse tipo de ambiente.</span>
+        </div>
       </div>
       <div class="result">
         <span class="pill before">654</span><span class="arrow">→</span><span class="pill after">59</span><span class="note">3 CRITICAL residuais no SO (Perl não usado pela app)</span>
@@ -315,6 +377,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">05</span><span class="tool">Syft</span></div><span class="tag">SBOM</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">SBOM</span> = Software Bill of Materials — inventário formal de tudo que compõe o artefato (componentes, versões, licenças), pra responder rápido quando sai uma CVE nova.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">Sem inventário, uma CVE nova (ex.: Log4Shell) exige re-escanear tudo do zero pra saber se te afeta.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value">SBOM do repo real = 40 componentes em CycloneDX, incluindo GitHub Actions do CI — não só libs de linguagem.</span></div>
         <div class="field">
@@ -323,6 +386,11 @@
             <div class="action"><span class="status done">implementada</span><span>Gerei o SBOM do repo real e do app de lab em CycloneDX.</span><span class="action-result">→ <strong>40 componentes</strong> catalogados</span></div>
             <div class="action"><span class="status todo">pendente</span><span>Simular uma CVE nova de verdade e consultar o SBOM pra responder em minutos (nunca fiz esse exercício), e confirmar que o job de CI publica o artefato a cada build.</span></div>
           </div>
+        </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match explicit">citada explicitamente — peso extra</span>
+          <span class="value">SBOM está no anúncio, e aqui pesa mais que boa prática genérica: a ADI tem linha regulada como SaMD (Software as a Medical Device), e a FDA exige SBOM na submissão de software médico desde 2023 — pra esse produto específico é requisito regulatório, não opcional.</span>
         </div>
       </div>
       <div class="result">
@@ -333,6 +401,7 @@
     <div class="card">
       <div class="card-head"><div class="tool-group"><span class="num">06</span><span class="tool">OWASP ZAP</span></div><span class="tag">DAST</span></div>
       <div class="card-body">
+        <div class="def"><span class="acronym">DAST</span> = Dynamic Application Security Testing — ataca a aplicação já rodando, de fora, simulando um atacante real; nunca olha o código-fonte.</div>
         <div class="field"><span class="label">Resolve</span><span class="value">Falha que só existe com a app rodando de verdade (headers, config de runtime) — invisível lendo o código-fonte.</span></div>
         <div class="field"><span class="label">Achado real</span><span class="value"><code>app.py</code> de 12 linhas, sem nenhum bug de lógica, ainda assim com 3 headers de segurança ausentes em runtime.</span></div>
         <div class="field">
@@ -341,6 +410,11 @@
             <div class="action"><span class="status done">implementada</span><span>Middleware adicionando <code>X-Content-Type-Options</code>, <code>Cross-Origin-Resource-Policy</code> e <code>Cache-Control</code>.</span><span class="action-result">→ 3 → <strong>1 WARN</strong></span></div>
             <div class="action"><span class="status todo">pendente</span><span>Configurar scan autenticado (hoje só cobre rota anônima); o WARN residual é efeito esperado do próprio fix — decisão consciente, não pendência.</span></div>
           </div>
+        </div>
+        <div class="field job">
+          <span class="label">Vs. vaga da Casey (Analog Devices)</span>
+          <span class="match explicit">citada explicitamente</span>
+          <span class="value">DAST está no anúncio ao lado de SAST/SCA/SBOM — fecha o quarteto de siglas que motivou o crash course inteiro.</span>
         </div>
       </div>
       <div class="result">
