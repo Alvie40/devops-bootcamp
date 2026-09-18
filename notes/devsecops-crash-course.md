@@ -43,7 +43,7 @@ novo:
 ```python
 subprocess.call("tar -czf backup.tar.gz " + filename, shell=True)   # command injection
 hashlib.md5(password.encode()).hexdigest()                          # hash fraco pra senha
-API_KEY = "sk_live_[REDACTED-fake-key-used-for-this-demo]"              # secret hardcoded
+API_KEY = "sk_live_[REDACTED-fake-key-used-for-this-demo]"          # secret hardcoded
 ```
 
 Semgrep achou os **3** (`subprocess-shell-true`, `md5-used-as-password`,
