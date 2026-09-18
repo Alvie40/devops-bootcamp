@@ -115,3 +115,5 @@ jobs:
         with:
           target: "http://localhost:8000/"
           cmd_options: "-I"
+          # o GITHUB_TOKEN padrao nao tem "issues: write"; DAST aqui so reporta no log
+          allow_issue_writing: false
