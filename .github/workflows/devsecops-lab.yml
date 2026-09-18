@@ -9,6 +9,11 @@ on:
     paths:
       - "python/devsecops-lab/**"
       - ".github/workflows/devsecops-lab.yml"
+  schedule:
+    # toda segunda 06:00 UTC — sem isso, um patch de seguranca na MESMA tag da
+    # base image (python:3.11-slim) so aparece na proxima vez que alguem tocar
+    # no codigo. O rebuild semanal pega isso mesmo com o app parado.
+    - cron: "0 6 * * 1"
 
 defaults:
   run:

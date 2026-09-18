@@ -30,12 +30,30 @@ imagens base e até GitHub Actions usadas no CI (foi o que o Syft achou no
 nova, em vez de escanear todo o parque de novo, eu consulto os SBOMs já publicados e
 sei em minutos quais artefatos usam o componente afetado.
 
+*Pratiquei o consumo, não só a geração*: simulei uma CVE hipotética em
+`anyio < 4.16.0` e, em vez de rodar o Trivy de novo, li o `sbom.json` já gerado e
+achei `anyio 4.15.1` (exposto) em milissegundos. Numa lista real de dezenas de
+serviços é a diferença entre responder em 1 minuto ou levar a tarde toda
+re-escaneando tudo.
+
 **Container scan: por que escanear a imagem além do código?**
 Porque o código nunca vê o SO base nem os pacotes que vêm com ele — e é ali que
-mora a maior parte do risco. Medido de verdade: `python:3.11` completo deu 649
+mora a maior parte do risco. Medido de verdade: `python:3.11` completo deu 654
 vulnerabilidades CRITICAL/HIGH; trocando só a base pra `python:3.11-slim`, sem tocar
-em uma linha de app, caiu pra 57 (queda de 91%). Blast radius da base image é maior
+em uma linha de app, caiu pra 59 (queda de 91%). Blast radius da base image é maior
 que o do meu código.
+
+**Foi além do slim: quando vale ir pra distroless, e qual o custo?**
+Fiz um multi-stage build (`python:3.11-slim` só pra instalar dependências,
+`gcr.io/distroless/python3-debian12` como runtime final) e caiu de 59 pra 49 — o
+`perl-base` e o `util-linux` (que geravam os 3 CRITICAL do slim) somem inteiros,
+porque distroless nunca instala pacotes que a app não precisa em runtime, incluindo
+shell. Testei que a app continua funcionando (`curl /health` → 200, headers
+intactos) antes de confiar no número. **O custo real:** sem shell, `docker exec sh`
+não funciona — se algo quebrar em produção, não dá pra entrar no container pra
+investigar do jeito tradicional; depende de logs bem feitos e observability
+externa. É uma troca deliberada (superfície de ataque menor por debugabilidade
+menor), não um "sempre use distroless".
 
 **O que é DAST pega que SAST não pega (e vice-versa)?**
 DAST viu o que rodou de verdade contra a app: `X-Content-Type-Options` ausente,
@@ -84,6 +102,18 @@ rotacionar a credencial — a chave vazada fica comprometida pra sempre, indepen
 do que acontecer no repo depois; reescrever histórico é faxina posterior, não
 remediação.
 
+**Instalei o hook de verdade — e bati numa allowlist padrão sem esperar.**
+[.pre-commit-config.yaml](../.pre-commit-config.yaml) roda Gitleaks antes de cada
+commit. Testei com `AWS_KEY = "AKIAIOSFODNN7EXAMPLE"` (achando que ia bloquear) e
+**passou** — só descobri o porquê investigando: essa string exata é o placeholder
+oficial que a própria documentação da AWS usa em todo tutorial, e o Gitleaks tem
+ela numa allowlist padrão pra não gerar ruído com exemplo de doc. Repeti com
+uma chave `AKIA…` gerada aleatoriamente (não reproduzida aqui — colar o valor
+literal numa doc é o mesmo erro que o hook existe pra pegar) e o hook bloqueou de verdade
+(`exit code 1`, commit não foi criado). Lição de entrevista: toda ferramenta de
+scanning tem allowlist padrão pra reduzir falso positivo — bom saber que existe
+antes de testar um hook e concluir errado que ele não funciona.
+
 **Blocking vs non-blocking security gate — como decidir?**
 No pipeline que montei: SAST, secrets e SCA (CRITICAL/HIGH) bloqueiam o merge —
 são coisas corrigíveis na hora, num projeto sob meu controle. Container scan bloqueia
@@ -105,19 +135,28 @@ que ainda não foi avaliado.
   pinadas corrigidas, 20→0 CVEs reverificado) e bati numa armadilha real: a primeira
   tentativa usou `>=` e o Trivy nem escaneou; só `==` fixado funciona. Relatório
   completo em [devsecops-scan-report.md](devsecops-scan-report.md).
-- **Container scan (Trivy image):** B — build, scan, comparação com número real
-  (654→62 trocando pra `-slim`; 62→59 depois de atualizar `fastapi`/`starlette`), e
-  um caso documentado de mitigação que **não** ajudou (`pip install --upgrade pip
-  setuptools wheel` trocou 2 CVEs por outras 2, total ficou igual — revertido em vez
-  de reportado como resolvido sem reverificar).
-- **SBOM (Syft):** C+ — instalei, gerei, expliquei o "porquê" com exemplo concreto
-  (Log4Shell); falta ainda consumir o SBOM pra responder uma CVE de verdade.
-- **Secrets (Gitleaks):** C+ — 1–5 e 7–8 cobertos (demo provocou o leak de propósito
-  num repo descartável e diagnosticou por que "corrigir" o arquivo não bastou); falta
-  só o critério 6, recuperação de verdade — nunca rotacionei uma credencial real após
-  um leak, só simulei o cenário.
+- **Container scan (Trivy image):** **B+** — build, scan, comparação com número
+  real (654→59 trocando pra `-slim` + atualizando `fastapi`/`starlette`; 59→49 com
+  multi-stage `distroless`), um caso documentado de mitigação que **não** ajudou
+  (`pip install --upgrade pip setuptools wheel` trocou 2 CVEs por outras 2 —
+  revertido) e um caso que ajudou de verdade removendo a categoria inteira do
+  problema (distroless nunca instala `perl`/`util-linux`, em vez de tentar
+  atualizá-los). Os 2 CRITICAL residuais (`libsqlite3-0`, `zlib1g`) não têm fix
+  upstream disponível ainda — confirmado no próprio output do Trivy
+  (`Fixed Version: None`), não é gap de esforço.
+- **SBOM (Syft):** **B** — instalei, gerei, expliquei o "porquê" com exemplo
+  concreto (Log4Shell), e consumi o SBOM de verdade: simulei uma CVE hipotética em
+  `anyio < 4.16.0` e confirmei exposição consultando o `sbom.json` já gerado
+  (`anyio 4.15.1`) em vez de re-escanear a imagem.
+- **Secrets (Gitleaks):** **B** — pre-commit hook instalado e testado nos dois
+  sentidos: bloqueou de verdade uma chave AWS aleatória, e **deixou passar**
+  `AKIAIOSFODNN7EXAMPLE` — achado real de que essa chave específica está numa
+  allowlist padrão do Gitleaks (é o placeholder oficial da doc da AWS). Falta só o
+  critério 6 pleno — rotação de credencial após um leak real de produção, não
+  simulado.
 - **DAST (ZAP):** **B** — rodei, expliquei a diferença de SAST, e mitiguei 2 dos 3
   achados de verdade (middleware de security headers, 3 WARN → 1 WARN); o residual
   é efeito colateral esperado do próprio fix (`Cache-Control: no-store` vira
-  "non-storable" no scan), documentado como decisão consciente. Falta só configurar
-  um scan autenticado (só cobre rota anônima até aqui).
+  "non-storable" no scan), documentado como decisão consciente. Scan autenticado
+  fica de fora por decisão de escopo — exigiria adicionar autenticação à app só
+  pra testar a ferramenta.

@@ -22,6 +22,20 @@ quando acontecer de verdade: **rotacionar a credencial primeiro** (a chave antig
 tratada como comprometida pra sempre, independente do repo); reescrever histórico
 (`git filter-repo`) é faxina posterior, não a correção.
 
+**Ação implementada em 18/09/2026 — pre-commit hook de verdade:**
+[.pre-commit-config.yaml](../.pre-commit-config.yaml) na raiz roda o hook oficial
+do Gitleaks antes de cada commit (`pre-commit install` uma vez). Testado nos dois
+sentidos:
+- `AWS_KEY = "AKIA…"` (chave aleatória gerada pro teste, valor não reproduzido aqui de propósito) → **hook bloqueou o
+  commit** (`exit code 1`, commit não foi criado).
+- `AWS_KEY = "AKIAIOSFODNN7EXAMPLE"` (a chave de exemplo oficial da documentação
+  da AWS) → **passou sem alerta**. Achado real: essa string específica está numa
+  **allowlist padrão do Gitleaks** (é literalmente o placeholder que a AWS usa em
+  toda a própria doc, então o Gitleaks ignora de propósito pra não gerar ruído em
+  tutorial/exemplo). Lição prática: allowlist padrão existe e pode mascarar teste
+  malfeito — sempre confirmar com uma chave genuinamente aleatória, nunca com o
+  exemplo de canhão de um vendor.
+
 ---
 
 ## 2. SAST (Semgrep)
@@ -104,17 +118,39 @@ mais complexidade no Dockerfile e um warning novo de rodar pip como root. Revert
 por outro sem eu perceber — sempre reverificar com o scanner depois de "corrigir",
 nunca assumir que upgrade == menos risco.
 
-**Residual aceito, e por quê:**
-- **3 CRITICAL em `perl-base`** (regex/path traversal do Perl que vem com o Debian
-  slim) — a app não usa Perl; é superfície de ataque morta, não exploitável neste
-  contexto, mas some só quando a Debian empacotar o patch upstream e a gente
-  reconstruir a imagem.
-- **2 HIGH em `jaraco.context`/`wheel`** — packaging tooling da própria base image
-  Python, fora do alcance do `requirements.txt`.
-- Próximo passo se quiser ir além (não feito ainda): multi-stage build copiando só o
-  venv pra uma imagem `distroless`/`python:3.11-slim` sem `perl`/`util-linux`, ou
-  rebuild agendado (cron semanal) pra pegar patch de segurança da base image sem
-  esperar um push de código.
+**Residual que EXISTIA e foi resolvido em 18/09/2026** — multi-stage build pra
+`Dockerfile.distroless`: stage builder em `python:3.11-slim` faz
+`pip install --target=/app/deps`, stage final copia só `/app/deps` + `app.py` pra
+`gcr.io/distroless/python3-debian12` (sem shell, sem gerenciador de pacotes, sem
+`perl`/`util-linux` — eles nunca são instalados nessa imagem).
+
+| Imagem | Total CRITICAL+HIGH |
+|---|---|
+| `Dockerfile` (`-slim`) | 59 (3 CRITICAL, 56 HIGH) |
+| `Dockerfile.distroless` | **49** (2 CRITICAL, 47 HIGH) |
+
+Testado de pé antes de confiar no número: `docker run` + `curl /health` → `200`,
+headers de segurança do middleware intactos. Os 3 CRITICAL de `perl-base` e os
+HIGH de `util-linux`/`login`/`mount` somem inteiros — nunca existiram na imagem.
+
+**Residual que ainda fica, e por quê (agora só 2 CRITICAL):**
+- **`libsqlite3-0` (`CVE-2025-7458`) e `zlib1g` (`CVE-2023-45853`)** — `Fixed
+  Version: None` no próprio Trivy. Não é que não corrigimos: **não existe patch
+  upstream ainda** pra essas duas. Residual aceito por falta de opção, não por
+  escolha — vira item de monitoramento (reescanear quando o Trivy DB atualizar),
+  não de ação agora.
+- **Tradeoff da mudança:** `distroless` não tem shell — `docker exec sh` não
+  funciona pra debugar dentro do container em produção. Trocar debugabilidade por
+  superfície de ataque menor é uma decisão de arquitetura, não almoço grátis.
+- **Tentativa que NÃO ajudou (mantida como lição):** atualizar `pip`/`setuptools`/
+  `wheel` manualmente no `Dockerfile` slim trocou 2 CVEs por outras 2 sem ganho
+  líquido — revertida. O multi-stage pra distroless resolveu o mesmo problema de
+  um jeito estrutural (não instalar o pacote, em vez de tentar atualizá-lo).
+- **Rebuild agendado**: `.github/workflows/devsecops-lab.yml` agora tem
+  `schedule: cron "0 6 * * 1"` (toda segunda) — pega patch de segurança na mesma
+  tag da base image sem depender de push de código.
+  [.github/dependabot.yml](../.github/dependabot.yml) cobre o resto (bump de
+  versão de dependência Python, tag de base image e GitHub Actions).
 
 ---
 
@@ -124,6 +160,19 @@ nunca assumir que upgrade == menos risco.
 |---|---|
 | `devops-bootcamp` (repo real) | 40 (inclui GitHub Actions do CI, não só libs) |
 | `~/devsecops-practice/` (demo) | 4 no CycloneDX — 3 `library` (`pyyaml`, `requests`, `urllib3`) + 1 `file` (o próprio `requirements.txt`, listado por rastreabilidade) |
+| `devsecops-lab:slim` (imagem, não diretório) | **2872** — inclui todo arquivo dentro da imagem, não só pacotes Python; escopo de scan muda drasticamente o tamanho do SBOM |
+
+**Exercício de mitigação feito em 18/09/2026 — consumir o SBOM de verdade:**
+simulei uma CVE nova hipotética em `anyio < 4.16.0` e, em vez de reescanear a
+imagem, consultei o `sbom.json` já gerado:
+```python
+for c in json.load(open('sbom.json'))['components']:
+    if c['name'] == 'anyio': print(c['name'], c['version'])
+# → anyio 4.15.1 → exposto (4.15.1 < 4.16.0 hipotético)
+```
+Resposta em milissegundos, sem tocar o Trivy/Docker de novo — é exatamente o valor
+prático que motiva gerar SBOM: numa lista real de dezenas de serviços, é a
+diferença entre "sei em 1 minuto" e "reescaneio tudo de novo".
 
 **Ação de mitigação:** nenhuma — SBOM não é gate, é inventário. O valor prático é:
 quando sair uma CVE nova, consultar os SBOMs já publicados em vez de re-escanear tudo.
@@ -165,14 +214,16 @@ fica documentado como decisão consciente, não como bug pendente.
 
 | Categoria | Achados antes | Achados depois | Ação |
 |---|---|---|---|
-| Secrets | 0 (real) / 1 (demo provocada) | 0 | nenhuma — playbook validado |
+| Secrets | 0 (real) / 1 (demo provocada) | 0 | pre-commit hook instalado e testado (bloqueia de verdade) |
 | SAST | 3/4 (auto vs auto+custom) | — | regra custom escrita; padrões de fix documentados |
-| SCA | 20 CVEs | **0** | versões pinadas e corrigidas, reverificado |
-| Container | 654 (full) → 62 (slim) | **59** | slim + `fastapi` atualizado; 5 residuais aceitos (SO/base image, fora do app) |
-| SBOM | — | 4 componentes | inventário, sem gate |
+| SCA | 20 CVEs | **0** | versões pinadas e corrigidas + Dependabot configurado |
+| Container | 654 (full) → 59 (slim) | **49 (distroless)** | slim + `fastapi` atualizado + multi-stage distroless + rebuild agendado; 2 residuais sem patch upstream disponível |
+| SBOM | — | 40 componentes (repo) / 2872 (imagem) | inventário + exercício real de consulta a uma CVE simulada |
 | DAST | 3 WARN | **1 WARN** | headers de segurança adicionados; 1 residual é efeito colateral esperado |
 
-**O que ainda fica pendente de verdade** (não é "não fiz", é "decisão explícita de
-não fazer agora"): multi-stage/distroless pros 5 CVEs residuais do container, e
-nunca vivi uma rotação de credencial real após um leak (só simulei). Ambos citados
-na régua C→B do `devsecops-interview.md`.
+**O que ainda fica pendente de verdade** (não é "não fiz", é "não dá pra fazer sem
+um incidente real ou sem inflar escopo"): nunca vivi uma rotação de credencial real
+após um leak (só simulei, e o próprio teste do hook expôs a allowlist do
+`AKIAIOSFODNN7EXAMPLE`); scan autenticado no ZAP exigiria adicionar autenticação à
+app só pra testar a ferramenta, o que seria escopo inflado pro que essa lab pede.
+Ambos citados na régua C→B do `devsecops-interview.md`.
