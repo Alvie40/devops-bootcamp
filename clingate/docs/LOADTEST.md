@@ -122,6 +122,49 @@ lower per-pod ceiling and thread-pool pressure, i.e. hypothesis 6), Docker Deskt
 silicon (arm64), generator and target share the host. It bounds the *API CPU* term only; it says
 nothing about Aurora or MLLP. Re-measure with LocalStack, then in staging.
 
+### 3.4 Local experiments (P1, NavyBlue, $0)
+
+Run with `make mllp-sweep` and `make worker-db-sweep`. Docker Postgres and Python processes on a
+laptop: they rank *where the design bends*, they do not predict Aurora or Fargate numbers.
+
+**MLLP, sink with a 20 ms ACK** (hypothesis 2): throughput tracks `connections / latency`.
+
+| Connections | msg/s | Predicted |
+|---|---|---|
+| 1 | 43 | 48 |
+| 4 | 175 | 190 |
+| 16 | 734 | 762 |
+| 32 | 1,470 | 1,524 |
+
+**Listener ceiling** (null backend, no network latency): ~4,200 msg/s for one process, flat whether
+1, 2 or 4 sender processes push (so the limit is the listener's parse + scrub CPU, not the
+generator). Scale is more pods, not more connections.
+
+**Worker -> Postgres**, one process, k threads and k pooled connections (`ingest/s`, 12 obs/msg):
+
+| Threads | ingest/s | p50 | p99 |
+|---|---|---|---|
+| 1 | 216 | 4.4 ms | 9.5 ms |
+| 4 | 517 | 7.5 ms | 13.9 ms |
+| 8 | 604 | 12.8 ms | 25 ms |
+| 16 | 494 | 31.9 ms | 46.9 ms |
+
+Past 8 the process **gets worse** (pool thrash + GIL): a bigger pool is not a faster worker, which is
+why the pool cap is a design constraint. **Control:** 8 threads x P processes gives 614 / 1,080 /
+1,436 ingest/s for P = 1 / 2 / 3, near-linear, so the per-process ceiling was Python CPU, not the
+database. Postgres in Docker absorbed ~17k observation rows/s without p50 blowing up (12 -> 16 ms).
+
+What this changes:
+- **Prediction refined.** I ranked Aurora first. Measured, the worker's own CPU saturates first; the
+  database becomes the shared limit only as pods are added, and where that happens is untested
+  (needs Aurora at its real min/max ACU).
+- **Size the DB in rows/s, not requests/s.** One HTTP batch is 30 rows: 1,000 rps = 30,000 rows/s
+  = ~2.6 billion rows/day. That is a storage-volume problem before it is a throughput problem, so
+  per-sample rows suit low-rate clinical vitals; high-rate raw sensor data belongs in S3 (the
+  presigned-PUT path in SPEC §4) with the database holding summaries. **Design decision still open.**
+- **Capacity model per process** (local, indicative): API ~250 rps safe, listener ~4,000 msg/s,
+  worker ~600 ingest/s at 12 obs. Multiply by pods, then re-measure in staging.
+
 ---
 
 ## 4. Test catalog
@@ -145,8 +188,8 @@ Ranked by my expected order of failure. The report fills the last two columns.
 
 | # | Hypothesis | Expected signature | Mitigation to test | Measured? | Confirmed? |
 |---|---|---|---|---|---|
-| 1 | **Aurora**: `pods × pool` exceeds connection limits; ACU scaling lags | `queue_oldest_age` rises, worker timeouts, "too many connections" | Batch inserts, pool cap, PgBouncer/RDS Proxy, ACU min/max | | |
-| 2 | **MLLP serial ACK** (inbound and outbound) | `export-q` grows while everything else is green; per-connection rate flat at ~1/RTT | More connections, per-destination pool, `BHS/BTS` batching, backpressure | | |
+| 1 | **Aurora**: `pods × pool` exceeds connection limits; ACU scaling lags | `queue_oldest_age` rises, worker timeouts, "too many connections" | Batch inserts, pool cap, PgBouncer/RDS Proxy, ACU min/max | Local only (Docker Postgres, not Aurora): see §3.4 | **Not confirmed as the first limit.** Worker CPU (Python parse, GIL) hit first; DB scaled to >= 1,400 ingest/s with 3 processes. Aurora ACU behavior still open (staging) |
+| 2 | **MLLP serial ACK** (inbound and outbound) | `export-q` grows while everything else is green; per-connection rate flat at ~1/RTT | More connections, per-destination pool, `BHS/BTS` batching, backpressure | Yes, locally (§3.4) | **Confirmed**: throughput = connections / ACK latency (43 msg/s at 1 conn, 1,470 at 32, 20 ms ACK) |
 | 3 | **Autoscaling lag** (Fargate cold start, scaler polling, LB scale) | 5xx/latency only in the first 1–2 min of a spike | Higher min replicas, pre-scale, KEDA on backlog | | |
 | 4 | **KMS / S3**: per-object KMS calls hit request quotas and cost; per-prefix PUT ceiling | KMS throttling; cost above estimate | Bucket Keys (already in design), prefix hashing, aggregation | | |
 | 5 | **`ingest-api` CPU**: JWT verify (RS256) + JSON validation | API CPU pegged before any other resource | JWKS cache, lean validation, more pods | | |

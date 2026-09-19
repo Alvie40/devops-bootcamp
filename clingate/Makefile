@@ -5,7 +5,7 @@ TEST_DSN := postgresql://migrator:dev-migrator@127.0.0.1:55432/clingate_test
 TEST_APP_DSN := postgresql://app_rw:dev-app@127.0.0.1:55432/clingate_test
 
 .DEFAULT_GOAL := help
-.PHONY: help sync lint fmt test test-integration ci db-up db-down migrate token baseline baseline-sweep dev-up-aws smoke-aws sink loadtest-mllp clean
+.PHONY: help sync lint fmt test test-integration ci db-up db-down migrate token baseline baseline-sweep mllp-sweep worker-db-sweep dev-up-aws smoke-aws sink loadtest-mllp clean
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
@@ -14,11 +14,11 @@ sync: ## install dependencies
 	$(UV) sync
 
 lint: ## ruff check + format check
-	$(UV) run ruff check apps sim tests
-	$(UV) run ruff format --check apps sim tests
+	$(UV) run ruff check apps sim tests loadtest
+	$(UV) run ruff format --check apps sim tests loadtest
 
 fmt: ## auto-format
-	$(UV) run ruff check --fix apps sim tests && $(UV) run ruff format apps sim tests
+	$(UV) run ruff check --fix apps sim tests loadtest && $(UV) run ruff format apps sim tests loadtest
 
 test: ## unit + e2e (in-process, no docker)
 	$(UV) run pytest tests/unit -q
@@ -53,6 +53,12 @@ baseline: ## single-pod capacity baseline: 0.5 vCPU container + k6 (RATE=50 or S
 
 baseline-sweep: ## sweep arrival rates against one 0.5 vCPU pod to find the knee (RATES="50 100 200" DUR=20)
 	./loadtest/sweep.sh
+
+mllp-sweep: ## hypothesis 2: MLLP serial-ACK ceiling vs connections (ACK_LATENCY_MS=20)
+	$(UV) run python loadtest/mllp_sweep.py
+
+worker-db-sweep: db-up ## hypothesis 1: worker -> Postgres throughput vs concurrency (N=1500)
+	$(UV) run python loadtest/worker_db_sweep.py
 
 dev-up-aws: db-up ## start LocalStack (S3/SQS + DLQs) next to Postgres
 	$(COMPOSE) --profile aws up -d --wait localstack

@@ -18,6 +18,7 @@ async def dump(
     host: str, port: int, *, count: int, connections: int, seed: int, ledger_path: str,
     duplicate_rate: float = 0.01,
 ) -> dict:  # fmt: skip
+    every = int(1 / duplicate_rate) if duplicate_rate else 0
     queue: asyncio.Queue[int] = asyncio.Queue()
     for n in range(count):
         queue.put_nowait(n)
@@ -32,7 +33,7 @@ async def dump(
                 except asyncio.QueueEmpty:
                     return
                 key, text = hl7_message(seed, n)
-                for attempt in range(2 if n % int(1 / duplicate_rate or 1e9) == 0 else 1):
+                for attempt in range(2 if every and n % every == 0 else 1):
                     t0 = time.perf_counter()
                     try:
                         ack = hl7.parse_ack(hl7.decode_bytes(await client.send(text.encode())))
