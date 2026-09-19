@@ -1,0 +1,8 @@
+# Scope: our own files. The venv ships third-party test certs; dev/.keys holds a throwaway
+# dev signing key that is gitignored and never leaves this machine.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "non-project paths"
+paths = ['''^\.venv/''', '''^dev/\.keys/''', '''^build/''', '''^loadtest/out/''']

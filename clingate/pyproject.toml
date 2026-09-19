@@ -1,0 +1,49 @@
+[project]
+name = "clingate"
+version = "0.1.0"
+description = "Clinical data ingestion gateway (lab platform)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  "boto3>=1.35",
+  "psycopg[binary,pool]>=3.2",
+  "pyjwt[crypto]>=2.9",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "hypothesis>=6.100",
+  "httpx>=0.27",
+  "moto[s3,sqs]>=5.0",
+  "ruff>=0.6",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["apps", "sim"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["integration: needs a running Postgres (CLINGATE_TEST_DSN); run via `make test-integration`"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["apps", "sim", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["E501"]  # the formatter owns line length; long SQL/strings are fine
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S107"]
+"sim/**" = ["S311"]

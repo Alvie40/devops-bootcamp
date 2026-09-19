@@ -1,0 +1,12 @@
+.venv/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.egg-info/
+dev/.keys/
+build/
+*.tfvars
+.terraform/
+*.tfstate*
+loadtest/out/
+.hypothesis/

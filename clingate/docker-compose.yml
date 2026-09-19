@@ -1,0 +1,63 @@
+# Dev only. Ports bind to loopback; credentials are throwaway.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev-postgres
+    ports: ["127.0.0.1:55432:5432"]
+    volumes:
+      - ./dev/postgres-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  localstack:
+    image: localstack/localstack:3
+    profiles: ["aws"]          # heavy: only for `make dev-up-aws`
+    environment:
+      SERVICES: s3,sqs,kms,secretsmanager
+    ports: ["127.0.0.1:4566:4566"]
+    volumes:
+      - ./dev/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+
+  # --- single-pod capacity baseline (make baseline) ---------------------------------
+  # Emulates one Fargate task (0.5 vCPU / 1 GiB) with the null backend, so the run
+  # isolates the API's own CPU cost. Not a substitute for the staging load tests.
+  ingest-api:
+    profiles: ["baseline"]
+    build: { context: ., args: { APP: ingest_api } }
+    environment:
+      CLINGATE_BACKEND: "null"
+      CLINGATE_CLIENTS_FILE: /app/clients.json
+      CLINGATE_JWKS_FILE: /keys/jwks.json
+      CLINGATE_JWT_ISSUER: https://dev.clingate.local
+    volumes:
+      - ./dev/clients.json:/app/clients.json:ro
+      - ./dev/.keys:/keys:ro
+    cpus: 0.5
+    mem_limit: 1g
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  k6:
+    profiles: ["baseline"]
+    image: grafana/k6:latest
+    depends_on:
+      ingest-api: { condition: service_healthy }
+    environment:
+      TARGET: http://ingest-api:8000
+      TOKEN: ${TOKEN:-}
+      RATE: ${RATE:-50}
+      STAGES: ${STAGES:-}
+    volumes:
+      - ./loadtest/k6:/scripts:ro
+      - ./loadtest/out:/out
+    command: run /scripts/ingest.js --summary-export /out/summary.json

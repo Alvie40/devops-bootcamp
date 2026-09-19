@@ -1,0 +1,5 @@
+[
+  {"client_id": "dev-device-client", "tenant_id": "11111111-1111-1111-1111-111111111111", "kind": "http"},
+  {"client_id": "dev-lab-client", "tenant_id": "11111111-1111-1111-1111-111111111111", "kind": "mllp",
+   "sending_application": "LABAPP", "sending_facility": "LAB1"}
+]
