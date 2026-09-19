@@ -498,7 +498,7 @@ clingate/
 │   └── clingate_ops/           # migrate, reconcile, devdb  (replay, redrive-dlq: deferred)
 ├── sim/clingate_sim/           # sink, sender, seeded generator, dev auth
 ├── db/migrations/
-├── infra/                      # P2/P3: bootstrap, modules, envs/{security-tooling,staging,prod}/{persistent,ephemeral}
+├── infra/                      # P2: bootstrap-state, organization, audit, accounts/*, modules/ (P3 adds envs/*/{persistent,ephemeral})
 ├── deploy/                     # P3: Helm charts / values per env
 ├── dev/                        # clients, seed, init scripts, smoke.sh
 ├── loadtest/                   # k6 script, sweep.sh, reconciliation lives in apps/clingate_ops
@@ -522,6 +522,14 @@ operator reads, `replay`/`redrive-dlq` jobs, real-certificate mTLS test, baselin
 S3/SQS latency (the current one uses the null backend).
 
 | **P2** | Accounts/identity bootstrap: Organizations, SCPs, Identity Center, OIDC, state buckets, budgets; quota increases requested | `plan` clean; SSO login works; no runtime resources | ~$0 |
+
+**P2 status (2026-09-19): code complete, verified offline, not applied.** Stacks `bootstrap-state`,
+`organization`, `audit`, `accounts/{security-tooling,staging,prod}` and five modules (`scp`,
+`github-oidc`, `state-bucket`, `audit-archive`, `account-baseline`). `make all` in `infra/` passes fmt,
+validate, 17 mock-provider tests (mutation-checked) and a Trivy config scan. **Exit criteria not met:**
+no `plan` against AWS and no SSO login, because no management account exists yet (see infra/README.md,
+"Decision needed"). Quota requests for `staging` are also still to do.
+
 | **P3** | Staging runtime + full CI/CD to staging + smoke + perf gate | Push to `main` deploys signed image; smoke green; `make down` verified | Small, hours |
 | **P4** | Load / spike / stress / dependency-failure tests; one optimization loop | Report with predicted-vs-measured, knee point, before/after | ≤ $15 per run |
 | **P5** | Prod promotion with approval; nightly SBOM re-scan; DR drill (Aurora PITR + S3 version restore); docs polish | Promotion demo recorded; DR drill timed | Small |
@@ -544,6 +552,8 @@ S3/SQS latency (the current one uses the null backend).
 | 10 | Replay as Job/CLI | HTTP admin endpoint | Smaller attack surface. |
 | 11 | k6 (HTTP) + Python (MLLP, reconcile) | Locust only | Open-model arrival-rate executors and threshold gates; Python where protocols/logic need it. |
 | 12 | Two Terraform layers | Single stack | Session-scoped teardown without losing keys/audit. |
+| 13 | P2 keeps all state in one KMS-encrypted bucket in the management account | Per-account state buckets | Fewer bootstrap chicken-and-egg loops while only humans apply P2. Per-account buckets arrive with the P3 persistent layer, so the prod role never reads staging state. |
+| 14 | SCP protective statements exempt `OrganizationAccountAccessRole` and `gh-clingate-*` by ARN pattern | Tag-based exemptions; no exemptions | Terraform must still be able to configure what the SCPs protect. Break-glass use is recorded by the org trail. |
 
 ---
 
@@ -565,3 +575,4 @@ before being relied upon (or repeated in an interview):
 - GuardDuty / Security Hub / Access Analyzer pricing and free tiers.
 - FDA cybersecurity guidance / FD&C §524B applicability (this lab is not a device).
 - AWS policy on load-testing your own resources at the intended rates.
+- P2: SCP global-services exemption list; `rds:StorageEncrypted` / `ec2:Encrypted` condition keys; pinning extra GitHub OIDC claims in IAM conditions; Budgets and Cost Anomaly pricing; free-tier status of the organization trail; AWS provider v6 attributes against a real `plan`.

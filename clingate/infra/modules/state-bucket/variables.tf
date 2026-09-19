@@ -1,0 +1,14 @@
+variable "bucket_name" {
+  type = string
+}
+
+variable "noncurrent_version_days" {
+  description = "State history kept for recovery."
+  type        = number
+  default     = 90
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}

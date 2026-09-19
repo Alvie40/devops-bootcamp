@@ -10,3 +10,6 @@ build/
 *.tfstate*
 loadtest/out/
 .hypothesis/
+infra/**/backend.hcl
+backend.hcl
+infra/modules/**/.terraform.lock.hcl
