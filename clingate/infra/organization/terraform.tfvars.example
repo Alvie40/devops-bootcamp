@@ -1,5 +1,9 @@
 # Copy to terraform.tfvars (gitignored). Values below are placeholders.
-account_email_template = "you+clingate-%s@example.com"
+account_emails = {
+  security-tooling = "you+aws-sec@example.com"
+  staging          = "you+aws-stg@example.com"
+  prod             = "you+aws-prod@example.com"
+}
 alert_emails           = ["you@example.com"]
 aws_profile            = "clingate-management"
 

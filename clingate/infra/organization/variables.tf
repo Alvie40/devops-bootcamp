@@ -10,13 +10,18 @@ variable "aws_profile" {
   default     = null
 }
 
-variable "account_email_template" {
-  description = "Each member account needs a unique root e-mail. `%s` is replaced by the account key. Plus-addressing works: you+clingate-%s@example.com."
-  type        = string
+variable "account_emails" {
+  description = "Root e-mail of each member account. Must be unique per account, reachable for the life of the account, and protected by MFA on the mailbox (it is the password-reset path to every root)."
+  type        = map(string)
 
   validation {
-    condition     = strcontains(var.account_email_template, "%s")
-    error_message = "account_email_template must contain %s."
+    condition     = alltrue([for k in ["security-tooling", "staging", "prod"] : contains(keys(var.account_emails), k)])
+    error_message = "account_emails needs exactly the keys security-tooling, staging and prod."
+  }
+
+  validation {
+    condition     = length(distinct([for e in values(var.account_emails) : lower(e)])) == length(var.account_emails)
+    error_message = "Each account needs a distinct root e-mail."
   }
 }
 

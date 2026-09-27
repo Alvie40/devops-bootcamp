@@ -54,7 +54,7 @@ resource "aws_organizations_account" "this" {
   for_each = local.accounts
 
   name                       = each.value.name
-  email                      = format(var.account_email_template, each.key)
+  email                      = var.account_emails[each.key]
   parent_id                  = local.ou_ids[each.value.ou]
   role_name                  = "OrganizationAccountAccessRole"
   iam_user_access_to_billing = "DENY"
