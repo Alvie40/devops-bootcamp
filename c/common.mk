@@ -8,10 +8,17 @@
 # Assumes the exercise directory name matches its source file
 # (mario/mario.c, cat/cat.c, ...). Test targets are skipped automatically
 # when no test_<name>_cmocka.c / test_<name>_criterion.c exists.
+#
+# For exercises that don't use cs50.h, set CS50_LIBS to empty before the
+# include:
+#
+#   CS50_LIBS :=
+#   include ../common.mk
 
-CC := clang
-CFLAGS := -std=c11 -Wall -I..
-CS50_LIBS := -lcs50
+CC ?= clang
+CFLAGS ?= -std=c11 -Wall
+CFLAGS += -I..
+CS50_LIBS ?= -lcs50
 
 CMOCKA_PREFIX := $(shell brew --prefix cmocka 2>/dev/null)
 CRITERION_PREFIX := $(shell brew --prefix criterion 2>/dev/null)
