@@ -49,6 +49,24 @@ while i < len(lines):
             i += 1; buf.append(lines[i])
         txt = join(buf).strip()
         out.append(f'<p class="qen">{inline(txt)}</p>'); prev = 'qen'; i += 1; continue
+    # bloco de codigo cercado (```)
+    if ln.lstrip().startswith('```'):
+        buf = []
+        i += 1
+        while i < len(lines) and not lines[i].lstrip().startswith('```'):
+            buf.append(lines[i]); i += 1
+        i += 1  # pula o fechamento
+        code = '\n'.join(buf)
+        import html as _h
+        out.append('<pre class="code"><code>' + _h.escape(code) + '</code></pre>')
+        prev = 'code'; continue
+    # diagrama SVG cru (passa direto, centralizado)
+    if ln.lstrip().startswith('<svg'):
+        buf = [ln]
+        while '</svg>' not in buf[-1] and i + 1 < len(lines):
+            i += 1; buf.append(lines[i])
+        out.append('<div class="diagram">' + '\n'.join(buf) + '</div>')
+        prev = 'diagram'; i += 1; continue
     # lista com marcadores
     if ln.lstrip().startswith('- '):
         items = []
@@ -124,6 +142,14 @@ code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 88%;
        background: #f1f4f7; padding: 0.5px 3px; border-radius: 3px; color: #10395e; }
 strong { color: inherit; }
 
+
+
+pre.code { background: #0b2a4a; color: #e8f0f8; font-family: "SF Mono", Menlo, Consolas, monospace;
+           font-size: 9.2pt; line-height: 1.5; padding: 10px 12px; border-radius: 7px;
+           margin: 8px 0 12px; white-space: pre-wrap; word-break: break-word; page-break-inside: avoid; }
+pre.code code { background: none; color: inherit; padding: 0; }
+.diagram { margin: 14px 0 18px; text-align: center; page-break-inside: avoid; }
+.diagram svg { max-width: 100%; height: auto; }
 table { width: 100%; border-collapse: collapse; margin: 6px 0 14px;
         font-size: 9.1pt; page-break-inside: avoid; }
 th { background: #eaf0f6; color: #0b2a4a; text-align: left; font-weight: 700;
