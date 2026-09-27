@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" font-family="-apple-system,Helvetica,Arial,sans-serif">
+<rect width="1500" height="1000" fill="#ffffff"/>
+<text x="750.0" y="52" text-anchor="middle" font-size="30" font-weight="700" fill="#0b2a4a">DevSecOps no pipeline CI/CD — controle por estagio</text>
+<text x="750.0" y="82" text-anchor="middle" font-size="15" fill="#5a6672">Onde cada verificacao roda, com o toolset real — e o que o video nao mostra: assinatura de imagem e runtime</text>
+<line x1="620" y1="118" x2="150" y2="118" stroke="#6c3fb5" stroke-width="3" marker-end="url(#pur)"/>
+<text x="385" y="110" text-anchor="middle" font-size="13" font-weight="700" fill="#6c3fb5">SHIFT LEFT — detectar o mais cedo possivel</text>
+<defs>
+<marker id="arw" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0b2a4a"/></marker>
+<marker id="pur" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6c3fb5"/></marker>
+<marker id="gry" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9aa7b4"/></marker>
+</defs>
+<rect x="45.0" y="150" width="210" height="46" rx="7" fill="#f0eafb" stroke="#6c3fb5" stroke-width="1.6"/>
+<text x="57.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">pre-commit</text>
+<text x="57.0" y="187" font-size="10.5" fill="#5a6672">Gitleaks + lint no commit</text>
+<rect x="199.0" y="157" width="48" height="15" rx="4" fill="#6c3fb5"/>
+<text x="223.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">HOOK</text>
+<rect x="45.0" y="206" width="210" height="46" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+<text x="57.0" y="226" font-size="14" font-weight="700" fill="#0b2a4a">SAST no IDE</text>
+<text x="57.0" y="243" font-size="10.5" fill="#5a6672">Semgrep / plugin</text>
+<rect x="199.0" y="213" width="48" height="15" rx="4" fill="#c0392b"/>
+<text x="223.0" y="224" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">BLOCK</text>
+<rect x="45.0" y="262" width="210" height="46" rx="7" fill="#f0eafb" stroke="#6c3fb5" stroke-width="1.6"/>
+<text x="57.0" y="282" font-size="14" font-weight="700" fill="#0b2a4a">Secret scan</text>
+<text x="57.0" y="299" font-size="10.5" fill="#5a6672">credencial antes do push</text>
+<rect x="199.0" y="269" width="48" height="15" rx="4" fill="#6c3fb5"/>
+<text x="223.0" y="280" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">HOOK</text>
+<line x1="150" y1="428" x2="150" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="275.0" y="150" width="210" height="46" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+<text x="287.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">SAST</text>
+<text x="287.0" y="187" font-size="10.5" fill="#5a6672">Semgrep — seu codigo</text>
+<rect x="429.0" y="157" width="48" height="15" rx="4" fill="#c0392b"/>
+<text x="453.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">BLOCK</text>
+<rect x="275.0" y="206" width="210" height="46" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+<text x="287.0" y="226" font-size="14" font-weight="700" fill="#0b2a4a">SCA</text>
+<text x="287.0" y="243" font-size="10.5" fill="#5a6672">Trivy fs — dependencias</text>
+<rect x="429.0" y="213" width="48" height="15" rx="4" fill="#c0392b"/>
+<text x="453.0" y="224" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">BLOCK</text>
+<rect x="275.0" y="262" width="210" height="46" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+<text x="287.0" y="282" font-size="14" font-weight="700" fill="#0b2a4a">Secret scan</text>
+<text x="287.0" y="299" font-size="10.5" fill="#5a6672">Gitleaks — historico git</text>
+<rect x="429.0" y="269" width="48" height="15" rx="4" fill="#c0392b"/>
+<text x="453.0" y="280" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">BLOCK</text>
+<line x1="380" y1="428" x2="380" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="505.0" y="150" width="210" height="46" rx="7" fill="#fdecec" stroke="#c0392b" stroke-width="1.6"/>
+<text x="517.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">Container scan</text>
+<text x="517.0" y="187" font-size="10.5" fill="#5a6672">Trivy image — CVEs da base</text>
+<rect x="659.0" y="157" width="48" height="15" rx="4" fill="#c0392b"/>
+<text x="683.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">BLOCK</text>
+<rect x="505.0" y="206" width="210" height="46" rx="7" fill="#fbf3e0" stroke="#b8860b" stroke-width="1.6"/>
+<text x="517.0" y="226" font-size="14" font-weight="700" fill="#0b2a4a">SBOM</text>
+<text x="517.0" y="243" font-size="10.5" fill="#5a6672">Syft — CycloneDX</text>
+<rect x="659.0" y="213" width="48" height="15" rx="4" fill="#b8860b"/>
+<text x="683.0" y="224" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">REPORT</text>
+<rect x="505.0" y="262" width="210" height="46" rx="7" fill="#e9f7ef" stroke="#1e7d4f" stroke-width="1.6"/>
+<text x="517.0" y="282" font-size="14" font-weight="700" fill="#0b2a4a">Assinar imagem</text>
+<text x="517.0" y="299" font-size="10.5" fill="#5a6672">cosign sign (provenance)</text>
+<rect x="659.0" y="269" width="48" height="15" rx="4" fill="#1e7d4f"/>
+<text x="683.0" y="280" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">TRUST</text>
+<line x1="610" y1="428" x2="610" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="735.0" y="150" width="210" height="46" rx="7" fill="#fbf3e0" stroke="#b8860b" stroke-width="1.6"/>
+<text x="747.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">DAST</text>
+<text x="747.0" y="187" font-size="10.5" fill="#5a6672">OWASP ZAP baseline</text>
+<rect x="889.0" y="157" width="48" height="15" rx="4" fill="#b8860b"/>
+<text x="913.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">REPORT</text>
+<line x1="840" y1="428" x2="840" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="965.0" y="150" width="210" height="46" rx="7" fill="#e9f7ef" stroke="#1e7d4f" stroke-width="1.6"/>
+<text x="977.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">Verificar assinatura</text>
+<text x="977.0" y="187" font-size="10.5" fill="#5a6672">cosign verify no deploy</text>
+<rect x="1119.0" y="157" width="48" height="15" rx="4" fill="#1e7d4f"/>
+<text x="1143.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">TRUST</text>
+<rect x="965.0" y="206" width="210" height="46" rx="7" fill="#e9f7ef" stroke="#1e7d4f" stroke-width="1.6"/>
+<text x="977.0" y="226" font-size="14" font-weight="700" fill="#0b2a4a">Push por digest</text>
+<text x="977.0" y="243" font-size="10.5" fill="#5a6672">@sha256, nao :latest</text>
+<rect x="1119.0" y="213" width="48" height="15" rx="4" fill="#1e7d4f"/>
+<text x="1143.0" y="224" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">TRUST</text>
+<line x1="1070" y1="428" x2="1070" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="1195.0" y="150" width="210" height="46" rx="7" fill="#fbf3e0" stroke="#b8860b" stroke-width="1.6"/>
+<text x="1207.0" y="170" font-size="14" font-weight="700" fill="#0b2a4a">Scan no registry</text>
+<text x="1207.0" y="187" font-size="10.5" fill="#5a6672">imagem re-escaneada</text>
+<rect x="1349.0" y="157" width="48" height="15" rx="4" fill="#b8860b"/>
+<text x="1373.0" y="168" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">REPORT</text>
+<rect x="1195.0" y="206" width="210" height="46" rx="7" fill="#fbf3e0" stroke="#b8860b" stroke-width="1.6"/>
+<text x="1207.0" y="226" font-size="14" font-weight="700" fill="#0b2a4a">Rescan agendado</text>
+<text x="1207.0" y="243" font-size="10.5" fill="#5a6672">cron pega CVE nova</text>
+<rect x="1349.0" y="213" width="48" height="15" rx="4" fill="#b8860b"/>
+<text x="1373.0" y="224" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">REPORT</text>
+<rect x="1195.0" y="262" width="210" height="46" rx="7" fill="#e9f7ef" stroke="#1e7d4f" stroke-width="1.6"/>
+<text x="1207.0" y="282" font-size="14" font-weight="700" fill="#0b2a4a">Admission / verify</text>
+<text x="1207.0" y="299" font-size="10.5" fill="#5a6672">so imagem assinada roda</text>
+<rect x="1349.0" y="269" width="48" height="15" rx="4" fill="#1e7d4f"/>
+<text x="1373.0" y="280" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">TRUST</text>
+<rect x="1195.0" y="318" width="210" height="46" rx="7" fill="#e8f1fb" stroke="#2b6cb0" stroke-width="1.6"/>
+<text x="1207.0" y="338" font-size="14" font-weight="700" fill="#0b2a4a">Observabilidade</text>
+<text x="1207.0" y="355" font-size="10.5" fill="#5a6672">Prometheus / Grafana</text>
+<rect x="1349.0" y="325" width="48" height="15" rx="4" fill="#2b6cb0"/>
+<text x="1373.0" y="336" text-anchor="middle" font-size="8.5" font-weight="700" fill="#ffffff">OBS</text>
+<line x1="1300" y1="428" x2="1300" y2="658" stroke="#c8d4e0" stroke-width="1.4" stroke-dasharray="4 4"/>
+<rect x="45.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="150" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Dev IDE</text>
+<text x="150" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">local, antes do commit</text>
+<rect x="275.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="380" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Source</text>
+<text x="380" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">commit / pull request</text>
+<line x1="255.0" y1="697.0" x2="272.0" y2="697.0" stroke="#0b2a4a" stroke-width="2.4" marker-end="url(#arw)"/>
+<rect x="505.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="610" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Build</text>
+<text x="610" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">gera artefato/imagem</text>
+<line x1="485.0" y1="697.0" x2="502.0" y2="697.0" stroke="#0b2a4a" stroke-width="2.4" marker-end="url(#arw)"/>
+<rect x="735.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="840" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Test</text>
+<text x="840" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">app rodando</text>
+<line x1="715.0" y1="697.0" x2="732.0" y2="697.0" stroke="#0b2a4a" stroke-width="2.4" marker-end="url(#arw)"/>
+<rect x="965.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="1070" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Release</text>
+<text x="1070" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">publica no registry</text>
+<line x1="945.0" y1="697.0" x2="962.0" y2="697.0" stroke="#0b2a4a" stroke-width="2.4" marker-end="url(#arw)"/>
+<rect x="1195.0" y="660" width="210" height="74" rx="9" fill="#0b2a4a"/>
+<text x="1300" y="690" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Runtime / Prod</text>
+<text x="1300" y="712" text-anchor="middle" font-size="10.5" fill="#b9c7d6">ambiente no ar</text>
+<line x1="1175.0" y1="697.0" x2="1192.0" y2="697.0" stroke="#0b2a4a" stroke-width="2.4" marker-end="url(#arw)"/>
+<text x="750.0" y="776" text-anchor="middle" font-size="20" font-weight="700" fill="#0b2a4a" letter-spacing="2">CI / CD  PIPELINE</text>
+<text x="40" y="812" font-size="13" font-weight="700" fill="#0b2a4a">Legenda dos gates</text>
+<rect x="40" y="824" width="46" height="16" rx="4" fill="#c0392b"/>
+<text x="63" y="836" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff">BLOCK</text>
+<text x="98" y="836" font-size="12" fill="#33404d">barra o merge/deploy (codigo, deps, secrets, CRITICAL c/ fix)</text>
+<rect x="40" y="850" width="46" height="16" rx="4" fill="#b8860b"/>
+<text x="63" y="862" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff">REPORT</text>
+<text x="98" y="862" font-size="12" fill="#33404d">so reporta ate haver triagem (DAST, SBOM, scan de runtime)</text>
+<rect x="40" y="876" width="46" height="16" rx="4" fill="#1e7d4f"/>
+<text x="63" y="888" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff">TRUST</text>
+<text x="98" y="888" font-size="12" fill="#33404d">cadeia de confianca — o que o video nao cobre</text>
+<rect x="40" y="902" width="46" height="16" rx="4" fill="#6c3fb5"/>
+<text x="63" y="914" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff">HOOK</text>
+<text x="98" y="914" font-size="12" fill="#33404d">roda local, antes de existir commit</text>
+<rect x="40" y="928" width="46" height="16" rx="4" fill="#2b6cb0"/>
+<text x="63" y="940" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff">OBS</text>
+<text x="98" y="940" font-size="12" fill="#33404d">observabilidade em producao</text>
+<rect x="760" y="800" width="700" height="168" rx="10" fill="#f4f7fa" stroke="#c8d4e0"/>
+<text x="780" y="828" font-size="13" font-weight="700" fill="#0b2a4a">3 pontos que a banca vai cobrar</text>
+<text x="780" y="852" font-size="11.5" fill="#33404d">• Checagens estaticas (SAST/SCA/secrets) rodam em 3 estagios: IDE + Source + Build — nao uma vez so.</text>
+<text x="780" y="874" font-size="11.5" fill="#33404d">• Scan diz 'a imagem esta limpa'. Assinatura (cosign) diz 'e a mesma que eu construi' — sao coisas diferentes.</text>
+<text x="780" y="896" font-size="11.5" fill="#33404d">• Tag e movel e pode ser reescrita; digest @sha256 nao. Deploy por digest, nunca :latest.</text>
+<text x="780" y="918" font-size="11.5" fill="#33404d">• SBOM: exigencia do FDA para software de dispositivo medico desde 2023 — nao so boa pratica.</text>
+<text x="780" y="940" font-size="11.5" fill="#33404d">• Distroless nem sempre ganha: medi 49 CVEs (2 CRITICAL) vs slim endurecido 44 (0). Medir &gt; supor.</text>
+</svg>
